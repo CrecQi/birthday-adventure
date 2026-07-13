@@ -3,7 +3,7 @@
 //
 // 箱子三种类型（全部悬空，必须跳起从下方顶开）：
 //   layer 1          ：悬在低空，从地面起跳即可顶到
-//   layer 2          ：放在台面上方，跳上台面再跳一次即可顶开
+//   layer 2          ：侧面台面起跳，走到悬空箱下方再顶开（箱子不接触台面）
 //   onPipe = true    ：悬在管道口正上方，只能站在管道口上起跳顶开；
 //                      顶开后会掉进管道（及时按 ←/→ 可逃离），
 //                      从附近另一根管道掉出来
@@ -178,21 +178,15 @@ function buildLevel() {
       // ---- 管道口悬空箱 ----
       const pipeW = TILE * 1.4;
       const px = bx + (TILE - pipeW) / 2;
-      let mouthY;
+      const mouthY = groundY - TILE * 2.2;
+      boxY = mouthY - TILE * 2.5;
 
+      // 第二层：侧面放台面辅助上台，台面不压在管道上方
       if (cfg.layer === 2) {
-        // 第二层：台面承托，箱子在台面上方，跳上台面再顶
-        const platY = groundY - TILE * 2.5;
-        const platW = TILE * 2.8;
         platforms.push({
-          x: bx - (platW - TILE) / 2, y: platY,
-          w: platW, h: TILE * 0.5, type: "platform",
+          x: bx - TILE * 3.8, y: groundY - TILE * 2.5,
+          w: TILE * 2.2, h: TILE * 0.5, type: "platform",
         });
-        boxY = platY - TILE;
-        mouthY = platY + TILE * 0.5;
-      } else {
-        mouthY = groundY - TILE * 2.2;
-        boxY = mouthY - TILE * 2.5;
       }
 
       const exitX = bx + TILE * 3.2;
@@ -204,14 +198,14 @@ function buildLevel() {
       platforms.push({ x: px, y: mouthY, w: pipeW, h: groundY - mouthY, type: "pipe" });
       platforms.push({ x: exitX, y: exitMouthY, w: pipeW, h: groundY - exitMouthY, type: "pipe" });
     } else if (cfg.layer === 2) {
-      // ---- 第二层：箱子放在台面上方 ----
+      // ---- 第二层悬空箱：台面在下方承托跳跃，箱子悬空不接触台面 ----
       const platY = groundY - TILE * 2.5;
-      const platW = TILE * 2.8;
+      const platW = TILE * 3;
       platforms.push({
         x: bx - (platW - TILE) / 2, y: platY,
         w: platW, h: TILE * 0.5, type: "platform",
       });
-      boxY = platY - TILE;
+      boxY = platY - TILE * 1.5;
     } else {
       // ---- 第一层悬空箱：地面起跳即可顶到 ----
       boxY = groundY - TILE * 3;
@@ -708,7 +702,7 @@ function render() {
     }
   }
 
-  // 箱子（layer 2 在台面上方）
+  // 箱子（全部悬空）
   for (const box of boxes) {
     const by = box.y + box.bounceY;
     if (box.opened) {
@@ -877,62 +871,39 @@ function drawClouds() {
   ];
   cloudLayouts.forEach(([cx, cy, scale]) => {
     const sx = ((cx - camera.x * 0.2) % (gameWidth + 260) + gameWidth + 260) % (gameWidth + 260) - 120;
-    drawCuteCloud(sx, cy, scale);
+    drawDoodleCloud(sx, cy, scale);
   });
 }
 
-// 可爱卡通云：蓬松外形 + 腮红 + 小表情
-function drawCuteCloud(x, y, scale) {
+// 简笔画云朵：三弧蓬松外形，无五官
+function drawDoodleCloud(x, y, scale) {
   const s = scale;
-  const blobs = [
-    [0, 0, 22], [20, -10, 28], [42, -4, 24], [60, 4, 18], [18, 10, 20], [40, 12, 18],
-  ];
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
 
-  // 阴影
-  ctx.fillStyle = "rgba(26,26,26,0.12)";
-  blobs.forEach(([ox, oy, r]) => {
+  const drawShape = (ox, oy) => {
     ctx.beginPath();
-    ctx.arc(x + ox * s + 3, y + oy * s + 4, r * s, 0, Math.PI * 2);
-    ctx.fill();
-  });
+    ctx.moveTo(x + 6 * s + ox, y + 24 * s + oy);
+    ctx.arc(x + 18 * s + ox, y + 24 * s + oy, 11 * s, Math.PI, 0);
+    ctx.arc(x + 36 * s + ox, y + 22 * s + oy, 14 * s, Math.PI, 0);
+    ctx.arc(x + 52 * s + ox, y + 24 * s + oy, 9 * s, Math.PI, 0);
+    ctx.lineTo(x + 61 * s + ox, y + 30 * s + oy);
+    ctx.lineTo(x + 6 * s + ox, y + 30 * s + oy);
+    ctx.closePath();
+  };
 
-  // 云朵白肚
+  drawShape(3, 3);
+  ctx.fillStyle = "rgba(61, 53, 88, 0.08)";
+  ctx.fill();
+
+  drawShape(0, 0);
   ctx.fillStyle = C.white;
+  ctx.fill();
   ctx.strokeStyle = C.black;
   ctx.lineWidth = 2.5 * Math.min(s, 1.1);
-  blobs.forEach(([ox, oy, r]) => {
-    ctx.beginPath();
-    ctx.arc(x + ox * s, y + oy * s, r * s, 0, Math.PI * 2);
-    ctx.fill();
-  });
-  // 外轮廓描一次更干净
-  ctx.beginPath();
-  blobs.forEach(([ox, oy, r], i) => {
-    if (i === 0) ctx.moveTo(x + ox * s + r * s, y + oy * s);
-    ctx.arc(x + ox * s, y + oy * s, r * s, 0, Math.PI * 2);
-  });
   ctx.stroke();
-
-  // 腮红
-  ctx.fillStyle = "rgba(244, 168, 200, 0.55)";
-  ctx.beginPath();
-  ctx.ellipse(x + 14 * s, y + 8 * s, 6 * s, 4 * s, 0, 0, Math.PI * 2);
-  ctx.ellipse(x + 46 * s, y + 8 * s, 6 * s, 4 * s, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // 小眼睛
-  ctx.fillStyle = C.black;
-  ctx.beginPath();
-  ctx.arc(x + 24 * s, y + 2 * s, 2.2 * s, 0, Math.PI * 2);
-  ctx.arc(x + 38 * s, y + 2 * s, 2.2 * s, 0, Math.PI * 2);
-  ctx.fill();
-
-  // 微笑
-  ctx.strokeStyle = C.black;
-  ctx.lineWidth = 1.8 * s;
-  ctx.beginPath();
-  ctx.arc(x + 31 * s, y + 6 * s, 6 * s, 0.15 * Math.PI, 0.85 * Math.PI);
-  ctx.stroke();
+  ctx.restore();
 }
 
 // ---- 回忆弹窗 ----
