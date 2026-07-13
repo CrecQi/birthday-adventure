@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>PP生日大冒险 🎂</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=ZCOOL+QingKe+HuangYou&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- 开始界面 -->
+  <div id="start-screen" class="screen active">
+    <!-- 巨大半圆拱形标题，几乎占满屏幕 -->
+    <div class="arch-title-wrap">
+      <svg class="arch-title-svg" viewBox="0 0 900 360" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <path id="title-arc" d="M 40,300 Q 450,-20 860,300" fill="none"/>
+        </defs>
+        <text class="arch-title-text" font-family="ZCOOL KuaiLe, cursive">
+          <textPath href="#title-arc" startOffset="50%" text-anchor="middle">
+            PP生日大冒险
+          </textPath>
+        </text>
+      </svg>
+    </div>
+
+    <div class="start-content">
+      <p class="subtitle">今天是小胡宝的生日，她的生日礼物是什么呢？🎁<br>听说她要经历一次生日大冒险才可以找到答案哦！！✨<br>加油小宝！！💪</p>
+      <div class="btn-group">
+        <button id="btn-start" class="btn-primary">💜 开始冒险</button>
+      </div>
+      <p class="hint">💡 电脑：方向键移动 · 空格跳跃<br>手机：用屏幕下方按钮操作</p>
+    </div>
+  </div>
+
+  <!-- 游戏界面 -->
+  <div id="game-screen" class="screen">
+    <div class="hud">
+      <span>🪙 金币：<strong id="coin-count">0</strong></span>
+      <span>📦 箱子：<strong id="box-count">0</strong> / <span id="box-total">9</span></span>
+    </div>
+    <canvas id="game-canvas"></canvas>
+    <div class="touch-controls">
+      <button id="btn-left" class="touch-btn">◀</button>
+      <button id="btn-jump" class="touch-btn jump">▲</button>
+      <button id="btn-right" class="touch-btn">▶</button>
+    </div>
+  </div>
+
+  <!-- 回忆弹窗 -->
+  <div id="memory-modal" class="modal hidden">
+    <div class="modal-content">
+      <button id="btn-close-memory" class="btn-close">✕</button>
+      <h2 id="memory-title">回忆解锁！</h2>
+      <div id="memory-media" class="memory-media"></div>
+      <p id="memory-caption" class="memory-caption"></p>
+      <div class="btn-group">
+        <button id="btn-continue" class="btn-primary">💜 继续冒险</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 老虎机界面 -->
+  <div id="machine-screen" class="screen">
+    <div class="machine-content">
+      <h1>🎰 神秘老虎机</h1>
+      <p class="subtitle">投入金币，满 <strong>30</strong> 枚可摇手柄，投入全部 <strong>69</strong> 枚赢得 JACKPOT！</p>
+
+      <div class="slot-machine">
+        <div class="slot-body">
+          <!-- 转轮区：多符号长条，真正滚动 -->
+          <div class="slot-reels" id="slot-reels">
+            <div class="reel-window"><div class="reel-strip" id="reel-1"></div></div>
+            <div class="reel-window"><div class="reel-strip" id="reel-2"></div></div>
+            <div class="reel-window"><div class="reel-strip" id="reel-3"></div></div>
+          </div>
+
+          <!-- 投币显示 -->
+          <div class="slot-display">
+            <span id="machine-coin-display">0</span>
+            <small> / <span id="machine-coin-total">69</span> 枚已投入</small>
+          </div>
+
+          <!-- 投币口 -->
+          <div class="coin-slot" id="coin-slot">🪙 投币口</div>
+
+          <div class="slot-actions">
+            <button id="btn-insert-coin" class="btn-coin">🪙 投币</button>
+            <button id="btn-lever" class="btn-lever" disabled>
+              <span class="lever-knob">🎰</span>
+              <span class="lever-label">摇手柄</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="lever-arm" id="lever-arm"></div>
+      </div>
+
+      <div id="jackpot-banner" class="jackpot-banner hidden">
+        <span>✨ JACKPOT ✨</span>
+      </div>
+
+      <p class="coin-remaining">剩余金币：<strong id="remaining-coins">0</strong></p>
+      <button id="btn-return-game" class="btn-secondary">🔙 返回继续冒险</button>
+
+      <div id="coin-warning-modal" class="modal hidden">
+        <div class="modal-content warning-content">
+          <p class="warning-text">金币不够，请小宝回去继续搜集！</p>
+          <div class="btn-group">
+            <button id="btn-warning-back" class="btn-primary">💜 回去搜集金币</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 神秘礼物 -->
+  <div id="gift-modal" class="modal hidden">
+    <div class="modal-content gift-content">
+      <div class="confetti">🎉✨🎊💜🎈</div>
+      <h1>生日快乐，小胡宝！</h1>
+      <p class="gift-message">
+        谢谢你陪我走过每一段路。<br>
+        每一枚金币都是我们共同的回忆，<br>
+        而真正的神秘礼物——<br>
+        <strong>就在我手里，等送给你 💝</strong>
+      </p>
+      <p class="gift-footer">愿我们的故事，永远未完待续…… 💜</p>
+      <div class="btn-group">
+        <button id="btn-replay" class="btn-primary">💜 再玩一次</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>

@@ -1,0 +1,632 @@
+/* ============================================================
+   PP生日大冒险 — 紫色高级涂鸦风
+   ============================================================ */
+
+:root {
+  --purple: #C4B5FD;
+  --purple-light: #E9D5FF;
+  --purple-pale: #F5F0FF;
+  --purple-dark: #A78BFA;
+  --purple-deep: #C4B5FD;
+  --lavender: #FFFBFE;
+  --cream: #FFF5F9;
+  --blush: #FCE7F3;
+  --black: #3D3558;
+  --white: #ffffff;
+  --bg: #FFFBFE;
+  --bg-warm: #FFF5F9;
+  --gold: #FFE08A;
+  --heart: #E9D5FF;
+  --shadow: 5px 5px 0 var(--black);
+  --shadow-sm: 3px 3px 0 var(--black);
+  --border: 3px solid var(--black);
+  --radius: 20px;
+  --radius-pill: 50px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "ZCOOL KuaiLe", "ZCOOL QingKe HuangYou", "PingFang SC", cursive;
+  background: var(--bg);
+  color: var(--black);
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+body::before,
+body::after {
+  content: "💜";
+  position: fixed;
+  font-size: 1.6rem;
+  opacity: 0.35;
+  pointer-events: none;
+  z-index: 0;
+}
+body::before { top: 8%; left: 6%; }
+body::after  { bottom: 12%; right: 8%; font-size: 1.3rem; }
+
+.screen {
+  display: none;
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+
+.screen.active { display: flex; }
+
+/* ---- 开始界面 ---- */
+#start-screen {
+  justify-content: center;
+  gap: 0;
+  padding: 1vh 0 2vh;
+}
+
+/* 巨大半圆拱形标题 — 几乎占满上半屏 */
+.arch-title-wrap {
+  width: min(98vw, 980px);
+  height: min(52vh, 420px);
+  margin: 0 auto 0.2rem;
+  animation: breathe 3s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.arch-title-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  display: block;
+}
+
+.arch-title-text {
+  font-family: "ZCOOL KuaiLe", cursive;
+  font-size: 110px;
+  fill: var(--purple-dark);
+  stroke: var(--black);
+  stroke-width: 7px;
+  paint-order: stroke fill;
+  letter-spacing: 8px;
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.05); }
+}
+
+#start-screen .start-content {
+  background: var(--white);
+  border: var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.4rem 1.4rem 1.6rem;
+  max-width: 440px;
+  width: 90%;
+  text-align: center;
+  position: relative;
+  flex-shrink: 0;
+}
+
+#start-screen .start-content::before {
+  content: "✨";
+  position: absolute;
+  top: -14px;
+  right: 24px;
+  font-size: 1.4rem;
+}
+
+#start-screen .start-content::after {
+  content: "💜";
+  position: absolute;
+  bottom: -12px;
+  left: 20px;
+  font-size: 1.2rem;
+  opacity: 0.7;
+}
+
+.subtitle {
+  font-size: 0.95rem;
+  color: #444;
+  margin-bottom: 1.4rem;
+  line-height: 1.85;
+  font-weight: 400;
+}
+
+@media (max-width: 600px) {
+  .arch-title-wrap {
+    height: min(40vh, 280px);
+  }
+  .arch-title-text {
+    font-size: 78px;
+    stroke-width: 5px;
+    letter-spacing: 4px;
+  }
+}
+
+.hint {
+  margin-top: 1.4rem;
+  font-size: 0.82rem;
+  color: #777;
+  line-height: 1.8;
+  background: var(--lavender);
+  border: 2px dashed var(--purple-light);
+  border-radius: 12px;
+  padding: 0.8rem 1rem;
+}
+
+/* ---- 按钮 ---- */
+.btn-primary {
+  background: var(--purple);
+  color: var(--white);
+  border: var(--border);
+  padding: 0.9rem 2.2rem;
+  font-size: 1.15rem;
+  font-weight: 900;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.1s, box-shadow 0.1s;
+  font-family: inherit;
+}
+
+.btn-primary:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 6px 6px 0 var(--black);
+}
+
+.btn-primary:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--black);
+}
+
+.btn-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  align-items: center;
+}
+
+/* ---- 游戏 HUD ---- */
+#game-screen {
+  justify-content: flex-start;
+  background: var(--lavender);
+}
+
+.hud {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  padding: 0.7rem 1.2rem;
+  background: var(--white);
+  border-bottom: var(--border);
+  font-size: 0.95rem;
+  font-weight: 800;
+  z-index: 10;
+}
+
+.hud strong { color: var(--purple); }
+
+#game-canvas {
+  flex: 1;
+  width: 100%;
+  max-height: calc(100vh - 120px);
+  background: var(--lavender);
+}
+
+/* ---- 触控 ---- */
+.touch-controls {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  padding: 0.8rem 1rem;
+  background: var(--white);
+  border-top: var(--border);
+  width: 100%;
+}
+
+.touch-btn {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: var(--border);
+  background: var(--white);
+  color: var(--black);
+  font-size: 1.3rem;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.touch-btn.jump {
+  width: 72px;
+  height: 72px;
+  background: var(--purple);
+  color: var(--white);
+}
+
+.touch-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--black);
+}
+
+@media (min-width: 768px) {
+  .touch-controls { display: none; }
+}
+
+/* ---- 弹窗 ---- */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 26, 26, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 1rem;
+}
+
+.modal.hidden { display: none; }
+
+.modal-content {
+  background: var(--white);
+  border: 4px solid var(--black);
+  border-radius: var(--radius);
+  padding: 1.8rem 1.5rem;
+  max-width: 400px;
+  width: 100%;
+  text-align: center;
+  position: relative;
+  box-shadow: 8px 8px 0 var(--black);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-content h2 {
+  font-size: 1.4rem;
+  font-weight: 900;
+  margin-bottom: 1rem;
+}
+
+.btn-close {
+  position: absolute;
+  top: 0.8rem;
+  right: 0.8rem;
+  background: var(--white);
+  border: var(--border);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-weight: 900;
+  box-shadow: 2px 2px 0 var(--black);
+}
+
+.memory-media {
+  margin: 1rem auto;
+  padding: 10px;
+  background: var(--white);
+  border: 4px solid var(--purple);
+  border-radius: 16px;
+  outline: 3px solid var(--black);
+  box-shadow: 5px 5px 0 var(--black);
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.memory-media img,
+.memory-media video {
+  width: 100%;
+  max-height: 280px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.memory-caption {
+  color: #444;
+  margin-bottom: 1.2rem;
+  line-height: 1.6;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+/* ---- 老虎机 ---- */
+#machine-screen { background: var(--bg); }
+
+.machine-content {
+  text-align: center;
+  padding: 1rem;
+  max-width: 400px;
+  width: 92%;
+}
+
+.machine-content h1 {
+  font-size: 1.7rem;
+  font-weight: 900;
+  margin-bottom: 0.4rem;
+}
+
+.slot-machine {
+  position: relative;
+  margin: 1.4rem 0;
+}
+
+.slot-body {
+  background: var(--purple-deep);
+  border: 4px solid var(--black);
+  border-radius: var(--radius);
+  padding: 1.4rem 1.2rem;
+  box-shadow: var(--shadow);
+}
+
+/* 转轮 */
+.slot-reels {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-bottom: 1rem;
+  background: var(--black);
+  border: 3px solid var(--black);
+  border-radius: 12px;
+  padding: 0.5rem;
+}
+
+.reel-window {
+  width: 72px;
+  height: 72px;
+  background: var(--white);
+  border: 3px solid var(--purple-light);
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+}
+
+.reel-strip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  will-change: transform;
+}
+
+.reel-strip .reel-symbol {
+  width: 72px;
+  height: 72px;
+  line-height: 72px;
+  font-size: 2.4rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.reel-window.spinning .reel-strip {
+  animation: reelSpin 0.18s linear infinite;
+}
+
+@keyframes reelSpin {
+  0%   { transform: translateY(0); }
+  100% { transform: translateY(-72px); }
+}
+
+/* 投币显示 */
+.slot-display {
+  background: var(--lavender);
+  border: var(--border);
+  border-radius: 12px;
+  padding: 0.8rem;
+  margin-bottom: 0.8rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.slot-display span {
+  font-size: 2.2rem;
+  font-weight: 900;
+  color: var(--purple);
+}
+
+.slot-display small {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #555;
+}
+
+.coin-slot {
+  background: var(--bg);
+  border: var(--border);
+  border-radius: 12px;
+  padding: 0.7rem;
+  margin-bottom: 0.8rem;
+  font-weight: 800;
+  font-size: 0.95rem;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s;
+}
+
+.coin-slot.inserted {
+  transform: scale(1.05);
+  background: var(--purple-pale);
+}
+
+/* 操作按钮 */
+.slot-actions {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.btn-coin {
+  flex: 1;
+  background: var(--gold);
+  color: var(--black);
+  border: var(--border);
+  padding: 0.8rem 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 900;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-coin:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--black);
+}
+
+.btn-coin:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.btn-lever {
+  flex: 1;
+  background: var(--purple);
+  color: var(--white);
+  border: var(--border);
+  padding: 0.6rem 0.5rem;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 900;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  transition: transform 0.15s;
+}
+
+.lever-knob { font-size: 1.4rem; }
+.lever-label { font-size: 0.8rem; }
+
+.btn-lever:not(:disabled):hover {
+  background: var(--purple-dark);
+}
+
+.btn-lever.pulling {
+  transform: rotate(-18deg) translateY(4px);
+  transform-origin: bottom center;
+}
+
+.btn-lever:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* JACKPOT 横幅 */
+.jackpot-banner {
+  margin-top: 1rem;
+  background: var(--gold);
+  border: 4px solid var(--black);
+  border-radius: var(--radius-pill);
+  padding: 0.8rem 1.5rem;
+  box-shadow: var(--shadow);
+  animation: jackpotPulse 0.5s ease-in-out infinite alternate;
+}
+
+.jackpot-banner.hidden { display: none; }
+
+.jackpot-banner span {
+  font-size: 1.6rem;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  color: var(--black);
+}
+
+@keyframes jackpotPulse {
+  from { transform: scale(1); }
+  to   { transform: scale(1.08); }
+}
+
+.coin-remaining {
+  color: #555;
+  margin-top: 0.8rem;
+  font-weight: 700;
+}
+
+.coin-remaining strong { color: var(--purple); }
+
+.btn-secondary {
+  background: var(--white);
+  color: var(--black);
+  border: var(--border);
+  padding: 0.75rem 1.8rem;
+  font-size: 0.95rem;
+  font-weight: 900;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  font-family: inherit;
+  margin-top: 0.8rem;
+}
+
+.btn-secondary:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--black);
+}
+
+.warning-content {
+  background: var(--lavender);
+  max-width: 340px;
+}
+
+.warning-text {
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: var(--purple-dark);
+  margin: 1rem 0 1.5rem;
+  line-height: 1.6;
+}
+
+/* ---- 礼物弹窗 ---- */
+.gift-content { background: var(--lavender); }
+
+.gift-content h1 {
+  font-size: 1.5rem;
+  font-weight: 900;
+  margin: 1rem 0;
+  line-height: 1.5;
+}
+
+.confetti {
+  font-size: 2rem;
+  letter-spacing: 0.4rem;
+  animation: wiggle 1.2s ease-in-out infinite;
+}
+
+@keyframes wiggle {
+  0%, 100% { transform: rotate(-3deg); }
+  50%       { transform: rotate(3deg); }
+}
+
+.gift-message {
+  font-size: 1rem;
+  line-height: 2;
+  color: #333;
+  margin: 1.2rem 0;
+  font-weight: 600;
+}
+
+.gift-message strong {
+  color: var(--purple);
+  font-size: 1.1rem;
+  font-weight: 900;
+}
+
+.gift-footer {
+  color: #888;
+  font-style: italic;
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+}

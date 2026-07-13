@@ -1,0 +1,1110 @@
+// ============================================================
+// PP生日大冒险 — 游戏主逻辑
+//
+// 箱子三种类型（全部悬空，必须跳起从下方顶开）：
+//   layer 1          ：悬在低空，从地面起跳即可顶到
+//   layer 2          ：悬在高空，需先跳上旁边的台面，再跳一次才能顶到
+//   onPipe = true    ：悬在管道口正上方，只能站在管道口上起跳顶开；
+//                      顶开后会掉进管道（及时按 ←/→ 可逃离），
+//                      从附近另一根管道掉出来
+// ============================================================
+
+const GRAVITY = 0.6;
+const FRICTION = 0.85;
+const MOVE_SPEED = 5;
+const JUMP_FORCE = -13; // 最大跳跃高度约 141px ≈ 3.5 格
+const TILE = 40;
+const SHADOW = 4;
+const HEART_BURST_DELAY = 900; // 先看爱心迸溅，再弹回忆
+const PIPE_ESCAPE_FRAMES = 55; // 掉管道前的逃离窗口（约 0.9 秒）
+
+// 明亮香芋紫 + 奶油粉（高级感，不暗沉）
+const C = {
+  purple: "#C4B5FD",
+  purpleLight: "#E9D5FF",
+  purplePale: "#F5F0FF",
+  purpleDark: "#A78BFA",
+  cream: "#FFFBFE",
+  blush: "#FCE7F3",
+  black: "#3D3558",
+  white: "#ffffff",
+  bgSky: "#FFFBFE",
+  grass: "#DDD6FE",
+  ground: "#EDE9FE",
+  gold: "#FFE08A",
+  pipe: "#86EFAC",
+  pipeDark: "#6EE7A0",
+  heart: "#E9D5FF",
+  door: "#DDD6FE",
+  doorGlow: "#F0ABFC",
+};
+
+let canvas, ctx;
+let gameWidth, gameHeight;
+let player, platforms, boxes, coins, heartBubbles, pipes;
+let keys = {};
+let touchInput = { left: false, right: false, jump: false };
+let totalCoins = 0;
+let openedBoxes = 0;
+let gamePaused = false;
+let levelComplete = false;
+let jumpHeld = false;
+let camera = { x: 0 };
+let levelWidth = 0;
+let groundTopY = 0;
+let endDoor = null;
+let animationId = null;
+
+// 开箱 / 管道流程状态
+let boxOpeningAnim = false;
+let pendingMemory = null;
+let pendingPipe = null;
+
+const screens = {
+  start: document.getElementById("start-screen"),
+  game: document.getElementById("game-screen"),
+  machine: document.getElementById("machine-screen"),
+};
+const coinCountEl = document.getElementById("coin-count");
+const boxCountEl = document.getElementById("box-count");
+const boxTotalEl = document.getElementById("box-total");
+const memoryModal = document.getElementById("memory-modal");
+const giftModal = document.getElementById("gift-modal");
+const coinWarningModal = document.getElementById("coin-warning-modal");
+
+// ---- 初始化 ----
+function init() {
+  canvas = document.getElementById("game-canvas");
+  ctx = canvas.getContext("2d");
+  boxTotalEl.textContent = BOX_CONFIG.length;
+
+  resizeCanvas();
+  window.addEventListener("resize", resizeCanvas);
+
+  document.getElementById("btn-start").addEventListener("click", startGame);
+  document.getElementById("btn-close-memory").addEventListener("click", closeMemory);
+  document.getElementById("btn-continue").addEventListener("click", closeMemory);
+  document.getElementById("btn-insert-coin").addEventListener("click", insertCoin);
+  document.getElementById("btn-lever").addEventListener("click", pullLever);
+  document.getElementById("btn-return-game").addEventListener("click", returnToGame);
+  document.getElementById("btn-warning-back").addEventListener("click", () => {
+    coinWarningModal.classList.add("hidden");
+    returnToGame();
+  });
+  document.getElementById("btn-replay").addEventListener("click", replay);
+  setupControls();
+}
+
+function resizeCanvas() {
+  const hud = document.querySelector(".hud");
+  const controls = document.querySelector(".touch-controls");
+  const hudH = hud ? hud.offsetHeight : 40;
+  const ctrlH = controls && window.innerWidth < 768 ? controls.offsetHeight : 0;
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight - hudH - ctrlH;
+  gameWidth = canvas.width;
+  gameHeight = canvas.height;
+}
+
+function setupControls() {
+  window.addEventListener("keydown", (e) => {
+    keys[e.code] = true;
+    if (e.code === "Space" || e.code === "ArrowUp") e.preventDefault();
+  });
+  window.addEventListener("keyup", (e) => { keys[e.code] = false; });
+
+  const bindTouch = (id, key) => {
+    const el = document.getElementById(id);
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); touchInput[key] = true; });
+    el.addEventListener("touchend", (e) => { e.preventDefault(); touchInput[key] = false; });
+    el.addEventListener("mousedown", () => { touchInput[key] = true; });
+    el.addEventListener("mouseup", () => { touchInput[key] = false; });
+    el.addEventListener("mouseleave", () => { touchInput[key] = false; });
+  };
+  bindTouch("btn-left", "left");
+  bindTouch("btn-right", "right");
+  bindTouch("btn-jump", "jump");
+}
+
+function showScreen(name) {
+  Object.values(screens).forEach((s) => s.classList.remove("active"));
+  screens[name].classList.add("active");
+}
+
+// ---- 关卡构建 ----
+function buildLevel() {
+  platforms = [];
+  boxes = [];
+  coins = [];
+  heartBubbles = [];
+  pipes = [];
+
+  const groundY = gameHeight - TILE * 2;
+  groundTopY = groundY;
+  levelWidth = (BOX_CONFIG.length + 5) * TILE * 5;
+
+  for (let x = 0; x < levelWidth; x += TILE) {
+    platforms.push({ x, y: groundY, w: TILE, h: TILE, type: "ground" });
+  }
+
+  const spacing = Math.floor(levelWidth / (BOX_CONFIG.length + 1));
+
+  BOX_CONFIG.forEach((cfg, i) => {
+    const bx = spacing * (i + 1);
+    let boxY;
+    let pipeRef = null;
+
+    if (cfg.onPipe) {
+      // ---- 管道口悬空箱 ----
+      const pipeW = TILE * 1.4;
+      const px = bx + (TILE - pipeW) / 2; // 管道居中在箱子正下方
+      let mouthY;
+
+      if (cfg.layer === 2) {
+        // 高管道：需先跳上旁边台面，再跳上管道口
+        mouthY = groundY - TILE * 5;
+        platforms.push({
+          x: bx - TILE * 3.4, y: groundY - TILE * 2.5,
+          w: TILE * 2, h: TILE * 0.5, type: "platform",
+        });
+      } else {
+        // 矮管道：从地面直接跳上管道口
+        mouthY = groundY - TILE * 2.2;
+      }
+
+      // 箱子悬在管道口上方（站在管道口起跳才顶得到）
+      boxY = mouthY - TILE * 2.5;
+
+      const exitX = bx + TILE * 3.2;
+      const exitMouthY = groundY - TILE * 2.2;
+      pipeRef = { x: px, w: pipeW, mouthY, exitX, exitW: pipeW, exitMouthY };
+
+      pipes.push({ x: px, w: pipeW, mouthY, h: groundY - mouthY });
+      pipes.push({ x: exitX, w: pipeW, mouthY: exitMouthY, h: groundY - exitMouthY });
+      // 管道是实体：可站上管道口，侧面挡人
+      platforms.push({ x: px, y: mouthY, w: pipeW, h: groundY - mouthY, type: "pipe" });
+      platforms.push({ x: exitX, y: exitMouthY, w: pipeW, h: groundY - exitMouthY, type: "pipe" });
+    } else if (cfg.layer === 2) {
+      // ---- 第二层悬空箱：台面在箱子侧边，箱子纯悬空 ----
+      platforms.push({
+        x: bx - TILE * 2.8, y: groundY - TILE * 2.5,
+        w: TILE * 2.2, h: TILE * 0.5, type: "platform",
+      });
+      boxY = groundY - TILE * 6.5; // 地面跳不到（>3.5格），从台面跳可顶到
+    } else {
+      // ---- 第一层悬空箱：地面起跳即可顶到 ----
+      boxY = groundY - TILE * 3;
+    }
+
+    boxes.push({
+      x: bx, y: boxY, w: TILE, h: TILE,
+      config: cfg,
+      opened: false,
+      bounceY: 0,
+      bounceVel: 0,
+      layer: cfg.layer,
+      onPipe: cfg.onPipe,
+      pipeRef,
+    });
+  });
+
+  const flagX = levelWidth - TILE * 3;
+  // 终点神秘门（替代旗帜，需主动按跳跃进入）
+  endDoor = {
+    x: levelWidth - TILE * 3.2,
+    y: groundY - TILE * 3.6,
+    w: TILE * 2.6,
+    h: TILE * 3.6,
+  };
+
+  player = {
+    x: TILE * 2,
+    y: groundY - TILE * 1.5,
+    w: TILE * 0.7,
+    h: TILE * 0.9,
+    vx: 0, vy: 0,
+    onGround: false,
+    facing: 1,
+    animFrame: 0,
+    inPipe: null,       // null | escape_window | sinking | waiting
+    pipeRef: null,
+    pipeEscapeTimer: 0,
+    pipeWait: 0,
+  };
+
+  camera.x = 0;
+  totalCoins = 0;
+  openedBoxes = 0;
+  levelComplete = false;
+  jumpHeld = false;
+  boxOpeningAnim = false;
+  pendingMemory = null;
+  pendingPipe = null;
+  updateHUD();
+}
+
+// ---- 游戏循环 ----
+function startGame() {
+  ensureAudio();
+  showScreen("game");
+  resizeCanvas();
+  buildLevel();
+  gamePaused = false;
+  if (animationId) cancelAnimationFrame(animationId);
+  gameLoop();
+}
+
+function gameLoop() {
+  try {
+    if (!gamePaused) update();
+    render();
+  } catch (err) {
+    console.error("游戏循环错误:", err);
+    gamePaused = true;
+  }
+  animationId = requestAnimationFrame(gameLoop);
+}
+
+function update() {
+  // 泡泡、金币、箱子弹跳始终更新（开箱暂停时也要播放迸溅动画）
+  updateBubbles();
+  updateCoins();
+  updateBoxBounce();
+
+  if (boxOpeningAnim) return;
+
+  if (player.inPipe) {
+    updatePipeState();
+    updateCamera();
+    return;
+  }
+
+  const left = keys["ArrowLeft"] || keys["KeyA"] || touchInput.left;
+  const right = keys["ArrowRight"] || keys["KeyD"] || touchInput.right;
+  const jump = keys["Space"] || keys["ArrowUp"] || keys["KeyW"] || touchInput.jump;
+
+  if (left) { player.vx = -MOVE_SPEED; player.facing = -1; }
+  else if (right) { player.vx = MOVE_SPEED; player.facing = 1; }
+  else { player.vx *= FRICTION; }
+
+  if (jump && !jumpHeld && player.onGround) {
+    // 在神秘门处按跳跃 → 进入老虎机（不会误触自动进入）
+    if (tryEnterDoor()) {
+      jumpHeld = true;
+    } else {
+      player.vy = JUMP_FORCE;
+      player.onGround = false;
+      jumpHeld = true;
+    }
+  }
+  if (!jump) jumpHeld = false;
+
+  player.vy += GRAVITY;
+  player.x += player.vx;
+  player.y += player.vy;
+  player.onGround = false;
+  player.animFrame++;
+
+  // 平台碰撞（含管道实体的顶面/侧面）
+  for (const p of platforms) {
+    if (!collides(player, p)) continue;
+    if (player.vy > 0 && player.y + player.h - player.vy <= p.y + 6) {
+      player.y = p.y - player.h;
+      player.vy = 0;
+      player.onGround = true;
+    } else if (player.vy < 0 && player.y - player.vy >= p.y + p.h - 6) {
+      player.y = p.y + p.h;
+      player.vy = 0;
+    } else {
+      // 侧面碰撞：推出去（防止穿进管道/平台侧面）
+      if (player.x + player.w / 2 < p.x + p.w / 2) player.x = p.x - player.w;
+      else player.x = p.x + p.w;
+      player.vx = 0;
+    }
+  }
+
+  // 顶箱子（必须上升中、头部顶到箱底）
+  for (const box of boxes) {
+    if (box.opened) continue;
+    if (
+      player.vy < 0 &&
+      player.x + player.w > box.x &&
+      player.x < box.x + box.w &&
+      player.y <= box.y + box.h &&
+      player.y + player.h > box.y + box.h * 0.5
+    ) {
+      openBox(box);
+    }
+  }
+
+  if (player.x < 0) player.x = 0;
+  if (player.x > levelWidth - player.w) player.x = levelWidth - player.w;
+  if (player.y > gameHeight + 100) {
+    player.x = TILE * 2;
+    player.y = groundTopY - TILE * 1.5;
+    player.vy = 0;
+  }
+
+  updateCamera();
+}
+
+// 主动进入神秘门（不再靠走近就自动进老虎机）
+function tryEnterDoor() {
+  if (levelComplete || boxOpeningAnim || player.inPipe) return false;
+  if (openedBoxes < BOX_CONFIG.length) return false;
+  if (totalCoins < MIN_COINS_TO_ENTER_MACHINE) return false;
+  if (!endDoor) return false;
+
+  const atDoor = collides(player, endDoor);
+  if (!atDoor) return false;
+
+  levelComplete = true;
+  SFX.doorEnter();
+  goToMachine();
+  return true;
+}
+
+function isNearDoor() {
+  if (!endDoor || openedBoxes < BOX_CONFIG.length) return false;
+  const zone = { x: endDoor.x - TILE, y: endDoor.y - TILE * 0.5, w: endDoor.w + TILE * 2, h: endDoor.h + TILE };
+  return collides(player, zone);
+}
+
+function updateCamera() {
+  camera.x = player.x - gameWidth * 0.35;
+  if (camera.x < 0) camera.x = 0;
+  if (camera.x > levelWidth - gameWidth) camera.x = levelWidth - gameWidth;
+}
+
+function updateBoxBounce() {
+  for (const box of boxes) {
+    if (box.bounceVel !== 0 || box.bounceY !== 0) {
+      box.bounceVel += 0.8;
+      box.bounceY += box.bounceVel;
+      if (box.bounceY > 0) { box.bounceY = 0; box.bounceVel = -box.bounceVel * 0.5; }
+      if (Math.abs(box.bounceVel) < 0.3 && box.bounceY === 0) box.bounceVel = 0;
+    }
+  }
+}
+
+// 金币有重力：从高处箱子撒下后落到地面，永不消失，直到被捡走
+let lastCoinLandSound = 0;
+function updateCoins() {
+  for (let i = coins.length - 1; i >= 0; i--) {
+    const c = coins[i];
+    if (!c.settled) {
+      c.vy += 0.35;
+      c.x += c.vx;
+      c.y += c.vy;
+      if (c.y >= groundTopY - 12) {
+        c.y = groundTopY - 12;
+        c.settled = true;
+        const now = performance.now();
+        if (now - lastCoinLandSound > 40) {
+          SFX.coinLand();
+          lastCoinLandSound = now;
+        }
+        for (const pipe of pipes) {
+          if (c.x > pipe.x - 8 && c.x < pipe.x + pipe.w + 8) {
+            c.x = c.x < pipe.x + pipe.w / 2 ? pipe.x - 14 : pipe.x + pipe.w + 14;
+          }
+        }
+      }
+    }
+    c.bob += 0.08;
+    if (collides(player, { x: c.x - 10, y: c.y - 10, w: 20, h: 20 })) {
+      totalCoins += c.value;
+      SFX.coinCollect();
+      spawnHeartBurst(c.x, c.y, 0.3);
+      coins.splice(i, 1);
+      updateHUD();
+    }
+  }
+}
+
+// ---- 管道流程 ----
+function updatePipeState() {
+  const pipe = player.pipeRef;
+  const left = keys["ArrowLeft"] || keys["KeyA"] || touchInput.left;
+  const right = keys["ArrowRight"] || keys["KeyD"] || touchInput.right;
+
+  if (player.inPipe === "escape_window") {
+    player.pipeEscapeTimer--;
+    if (left || right) {
+      // 及时逃离：向侧面跳开
+      player.inPipe = null;
+      player.pipeRef = null;
+      player.vx = left ? -7 : 7;
+      player.vy = -8;
+      player.facing = left ? -1 : 1;
+      return;
+    }
+    if (player.pipeEscapeTimer <= 0) {
+      player.inPipe = "sinking";
+      player.x = pipe.x + (pipe.w - player.w) / 2;
+    }
+    return;
+  }
+
+  if (player.inPipe === "sinking") {
+    player.y += 4;
+    if (player.y > pipe.mouthY + TILE * 1.6) {
+      player.inPipe = "waiting";
+      player.pipeWait = 25;
+    }
+    return;
+  }
+
+  if (player.inPipe === "waiting") {
+    player.pipeWait--;
+    if (player.pipeWait <= 0) {
+      // 从出口管道弹出
+      player.x = pipe.exitX + (pipe.exitW - player.w) / 2;
+      player.y = pipe.exitMouthY - player.h - 2;
+      player.vy = -11;
+      player.vx = 2.5;
+      player.facing = 1;
+      spawnHeartBurst(player.x + player.w / 2, player.y, 0.4);
+      player.inPipe = null;
+      player.pipeRef = null;
+    }
+  }
+}
+
+function updateBubbles() {
+  for (let i = heartBubbles.length - 1; i >= 0; i--) {
+    const h = heartBubbles[i];
+    h.x += h.vx; h.y += h.vy;
+    h.vy += 0.08;
+    h.vx *= 0.98;
+    h.rotation += h.rotSpeed;
+    h.life--;
+    if (h.life <= 0) heartBubbles.splice(i, 1);
+  }
+}
+
+function collides(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+// ---- 爱心迸溅（永久保留的设计）----
+function spawnHeartBurst(x, y, scale = 1) {
+  const colors = [C.heart, C.purpleLight, C.purple, "#E9D5FF", "#F0ABFC", "#FDA4AF"];
+  const count = Math.max(6, Math.floor(24 * scale));
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+    const speed = 3 + Math.random() * 7;
+    heartBubbles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 3,
+      life: 45 + Math.random() * 35,
+      size: (5 + Math.random() * 9) * Math.max(scale, 0.6),
+      color: colors[Math.floor(Math.random() * colors.length)],
+      rotation: Math.random() * Math.PI * 2,
+      rotSpeed: (Math.random() - 0.5) * 0.25,
+      isHeart: Math.random() > 0.3,
+    });
+  }
+}
+
+function openBox(box) {
+  if (box.opened || boxOpeningAnim) return;
+  box.opened = true;
+  box.bounceVel = -6;
+  openedBoxes++;
+
+  const cfg = box.config;
+  for (let i = 0; i < cfg.coins; i++) {
+    coins.push({
+      x: box.x + box.w / 2,
+      y: box.y - 8,
+      vx: (Math.random() < 0.5 ? -1 : 1) * (1.5 + Math.random() * 3),
+      vy: -(2 + Math.random() * 4),
+      value: 1,
+      bob: Math.random() * Math.PI * 2,
+      settled: false,
+    });
+  }
+
+  // 1. 先迸溅爆破爱心泡泡
+  SFX.boxHit();
+  SFX.coinBurst();
+  spawnHeartBurst(box.x + box.w / 2, box.y + box.h / 2, 1.2);
+  updateHUD();
+
+  if (box.onPipe && box.pipeRef) {
+    pendingPipe = box.pipeRef;
+  }
+
+  // 2. 迸溅播完再弹出照片/视频
+  boxOpeningAnim = true;
+  pendingMemory = cfg;
+  setTimeout(() => {
+    boxOpeningAnim = false;
+    if (pendingMemory) {
+      showMemory(pendingMemory);
+      pendingMemory = null;
+    }
+  }, HEART_BURST_DELAY);
+}
+
+function updateHUD() {
+  coinCountEl.textContent = totalCoins;
+  boxCountEl.textContent = openedBoxes;
+}
+
+// ---- 绘图工具 ----
+function drawDoodleRect(x, y, w, h, fill, opts = {}) {
+  const { radius = 6, shadow = true, border = 3 } = opts;
+  if (shadow) {
+    ctx.fillStyle = C.black;
+    roundRect(ctx, x + SHADOW, y + SHADOW, w, h, radius);
+    ctx.fill();
+  }
+  ctx.fillStyle = fill;
+  roundRect(ctx, x, y, w, h, radius);
+  ctx.fill();
+  ctx.strokeStyle = C.black;
+  ctx.lineWidth = border;
+  roundRect(ctx, x, y, w, h, radius);
+  ctx.stroke();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function drawFlower(cx, cy, size) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  for (let i = 0; i < 5; i++) {
+    ctx.rotate((Math.PI * 2) / 5);
+    ctx.fillStyle = C.purpleLight;
+    ctx.beginPath();
+    ctx.ellipse(0, -size * 0.7, size * 0.45, size * 0.7, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = C.black;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+  ctx.fillStyle = C.purple;
+  ctx.beginPath();
+  ctx.arc(0, 0, size * 0.25, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawPipe(pipe) {
+  const rimH = TILE * 0.55;
+  // 管身
+  drawDoodleRect(pipe.x + 3, pipe.mouthY + rimH * 0.5, pipe.w - 6, pipe.h - rimH * 0.5, C.pipe, { radius: 3, shadow: false });
+  // 管口（略宽）
+  drawDoodleRect(pipe.x - 4, pipe.mouthY, pipe.w + 8, rimH, C.pipeDark, { radius: 6, shadow: false });
+}
+
+function drawHeartBubble(h) {
+  ctx.save();
+  ctx.translate(h.x, h.y);
+  ctx.rotate(h.rotation);
+  ctx.globalAlpha = Math.min(1, h.life / 30);
+  ctx.fillStyle = h.color;
+  ctx.strokeStyle = C.black;
+  ctx.lineWidth = 1.5;
+  if (h.isHeart) {
+    const s = h.size;
+    ctx.beginPath();
+    ctx.moveTo(0, s * 0.3);
+    ctx.bezierCurveTo(-s, -s * 0.3, -s, s * 0.5, 0, s);
+    ctx.bezierCurveTo(s, s * 0.5, s, -s * 0.3, 0, s * 0.3);
+    ctx.fill();
+    ctx.stroke();
+  } else {
+    ctx.beginPath();
+    ctx.arc(0, 0, h.size * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = C.white;
+    ctx.globalAlpha *= 0.5;
+    ctx.beginPath();
+    ctx.arc(-h.size * 0.15, -h.size * 0.15, h.size * 0.12, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ---- 渲染 ----
+function render() {
+  ctx.clearRect(0, 0, gameWidth, gameHeight);
+  ctx.fillStyle = C.bgSky;
+  ctx.fillRect(0, 0, gameWidth, gameHeight);
+
+  ctx.fillStyle = C.purplePale;
+  ctx.globalAlpha = 0.2;
+  ctx.fillRect(0, gameHeight * 0.7, gameWidth, gameHeight * 0.3);
+  ctx.globalAlpha = 1;
+
+  drawClouds();
+
+  ctx.save();
+  ctx.translate(-camera.x, 0);
+
+  // 平台（管道实体由 drawPipe 单独画）
+  for (const p of platforms) {
+    if (p.type === "pipe") continue;
+    if (p.type === "ground") {
+      drawDoodleRect(p.x, p.y, p.w, p.h, C.ground, { radius: 4, shadow: false });
+      ctx.fillStyle = C.grass;
+      roundRect(ctx, p.x + 2, p.y, p.w - 4, 10, 3);
+      ctx.fill();
+      ctx.strokeStyle = C.black;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(p.x + 2, p.y + 10);
+      ctx.lineTo(p.x + p.w - 2, p.y + 10);
+      ctx.stroke();
+    } else {
+      drawDoodleRect(p.x, p.y, p.w, p.h, C.white, { radius: 8 });
+    }
+  }
+
+  // 箱子（全部悬空，无任何托板）
+  for (const box of boxes) {
+    const by = box.y + box.bounceY;
+    if (box.opened) {
+      drawDoodleRect(box.x, by + box.h * 0.65, box.w, box.h * 0.35, C.purpleDark, { radius: 4 });
+    } else {
+      const boxColor = box.layer === 2 ? C.purple : C.purpleLight;
+      drawDoodleRect(box.x, by, box.w, box.h, boxColor, { radius: 8 });
+      if (box.layer === 2 && !box.onPipe) {
+        ctx.fillStyle = C.purpleDark;
+        ctx.font = `bold ${TILE * 0.28}px sans-serif`;
+        ctx.textAlign = "center";
+        ctx.fillText("✦", box.x + box.w / 2, by - 6);
+      }
+      ctx.fillStyle = C.white;
+      ctx.font = `900 ${TILE * 0.55}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("?", box.x + box.w / 2, by + box.h / 2 + 2);
+      ctx.strokeStyle = C.black;
+      ctx.lineWidth = 1.5;
+      ctx.strokeText("?", box.x + box.w / 2, by + box.h / 2 + 2);
+    }
+  }
+
+  // 金币
+  for (const c of coins) {
+    const bobY = c.settled ? Math.sin(c.bob) * 3 : 0;
+    const cy = c.y + bobY;
+    ctx.beginPath();
+    ctx.arc(c.x + 2, cy + 2, 9, 0, Math.PI * 2);
+    ctx.fillStyle = C.black;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(c.x, cy, 9, 0, Math.PI * 2);
+    ctx.fillStyle = C.gold;
+    ctx.fill();
+    ctx.strokeStyle = C.black;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    ctx.fillStyle = C.white;
+    ctx.font = "bold 10px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("♥", c.x, cy + 1);
+  }
+
+  // 终点神秘门
+  if (endDoor) drawEndDoor(endDoor);
+
+  drawPlayer();
+
+  // 管道画在角色之后：下沉/钻出时角色被管道遮住，效果自然
+  for (const pipe of pipes) drawPipe(pipe);
+
+  // 逃离提示
+  if (player.inPipe === "escape_window" && Math.floor(player.pipeEscapeTimer / 8) % 2 === 0) {
+    drawHintText("快按 ← / → 逃离！", player.x + player.w / 2, player.y - 12);
+  }
+
+  // 门前提示
+  if (isNearDoor() && totalCoins >= MIN_COINS_TO_ENTER_MACHINE && !levelComplete) {
+    drawHintText("按空格进入神秘门 🚪", player.x + player.w / 2, player.y - 18);
+  } else if (isNearDoor() && totalCoins < MIN_COINS_TO_ENTER_MACHINE) {
+    drawHintText("金币还不够哦～", player.x + player.w / 2, player.y - 18);
+  }
+
+  for (const h of heartBubbles) drawHeartBubble(h);
+
+  ctx.restore();
+}
+
+function drawPlayer() {
+  const { x, y, w, h, facing } = player;
+  const bounce = player.onGround && !player.inPipe ? Math.abs(Math.sin(player.animFrame * 0.3)) * 2 : 0;
+  ctx.save();
+  if (facing < 0) {
+    ctx.translate(x + w, 0);
+    ctx.scale(-1, 1);
+    drawMarioSprite(0, y - bounce, w, h);
+  } else {
+    drawMarioSprite(x, y - bounce, w, h);
+  }
+  ctx.restore();
+}
+
+function drawMarioSprite(x, y, w, h) {
+  ctx.fillStyle = C.black;
+  ctx.fillRect(x + SHADOW, y + SHADOW, w, h);
+  ctx.fillStyle = C.purple;
+  ctx.fillRect(x, y, w, h * 0.3);
+  ctx.strokeStyle = C.black;
+  ctx.lineWidth = 2.5;
+  ctx.strokeRect(x, y, w, h * 0.3);
+  ctx.fillStyle = "#FFE0BD";
+  ctx.fillRect(x + w * 0.1, y + h * 0.25, w * 0.8, h * 0.25);
+  ctx.strokeRect(x + w * 0.1, y + h * 0.25, w * 0.8, h * 0.25);
+  ctx.fillStyle = C.purple;
+  ctx.fillRect(x + w * 0.05, y + h * 0.5, w * 0.9, h * 0.3);
+  ctx.strokeRect(x + w * 0.05, y + h * 0.5, w * 0.9, h * 0.3);
+  ctx.fillStyle = C.white;
+  ctx.fillRect(x + w * 0.05, y + h * 0.65, w * 0.9, h * 0.35);
+  ctx.strokeRect(x + w * 0.05, y + h * 0.65, w * 0.9, h * 0.35);
+  ctx.fillStyle = C.purpleDark;
+  ctx.font = `bold ${w * 0.18}px sans-serif`;
+  ctx.textAlign = "center";
+  ctx.fillText("♥", x + w * 0.3, y + h * 0.76);
+  ctx.fillText("♥", x + w * 0.7, y + h * 0.76);
+  ctx.fillStyle = C.black;
+  ctx.fillRect(x, y + h * 0.88, w * 0.45, h * 0.12);
+  ctx.fillRect(x + w * 0.55, y + h * 0.88, w * 0.45, h * 0.12);
+}
+
+function drawHintText(text, x, y) {
+  ctx.font = "900 15px ZCOOL KuaiLe, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "bottom";
+  ctx.strokeStyle = C.white;
+  ctx.lineWidth = 4;
+  ctx.strokeText(text, x, y);
+  ctx.fillStyle = C.purpleDark;
+  ctx.fillText(text, x, y);
+}
+
+// 神秘门 — 替代终点旗帜
+function drawEndDoor(door) {
+  const { x, y, w, h } = door;
+  const ready = openedBoxes >= BOX_CONFIG.length;
+  const glow = ready && Math.sin(Date.now() / 400) * 0.15 + 0.85;
+
+  // 门框
+  drawDoodleRect(x - 6, y - 8, w + 12, h + 8, ready ? C.door : C.purplePale, { radius: 10 });
+
+  // 门拱（挖空效果）
+  ctx.fillStyle = C.bgSky;
+  roundRect(ctx, x + 4, y + 4, w - 8, h - 8, 8);
+  ctx.fill();
+
+  // 门内光晕（箱子全开时发光）
+  if (ready) {
+    ctx.fillStyle = `rgba(240, 171, 252, ${0.25 * glow})`;
+    roundRect(ctx, x + 8, y + 10, w - 16, h - 18, 6);
+    ctx.fill();
+  }
+
+  // 门把手
+  ctx.fillStyle = C.gold;
+  ctx.beginPath();
+  ctx.arc(x + w - 16, y + h * 0.55, 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = C.black;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // 门上标记
+  ctx.fillStyle = ready ? C.purpleDark : C.purpleLight;
+  ctx.font = `bold ${TILE * 0.35}px sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(ready ? "🎰" : "🔒", x + w / 2, y + h * 0.45);
+
+  // 门槛
+  ctx.fillStyle = C.ground;
+  ctx.fillRect(x - 4, y + h - 6, w + 8, 8);
+  ctx.strokeStyle = C.black;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x - 4, y + h - 6, w + 8, 8);
+}
+
+function drawClouds() {
+  const cloudLayouts = [
+    [80, 55, 1], [320, 85, 0.85], [560, 45, 1.15], [820, 75, 0.95], [1050, 60, 0.75],
+  ];
+  cloudLayouts.forEach(([cx, cy, scale]) => {
+    const sx = ((cx - camera.x * 0.2) % (gameWidth + 260) + gameWidth + 260) % (gameWidth + 260) - 120;
+    drawCuteCloud(sx, cy, scale);
+  });
+}
+
+// 可爱卡通云：蓬松外形 + 腮红 + 小表情
+function drawCuteCloud(x, y, scale) {
+  const s = scale;
+  const blobs = [
+    [0, 0, 22], [20, -10, 28], [42, -4, 24], [60, 4, 18], [18, 10, 20], [40, 12, 18],
+  ];
+
+  // 阴影
+  ctx.fillStyle = "rgba(26,26,26,0.12)";
+  blobs.forEach(([ox, oy, r]) => {
+    ctx.beginPath();
+    ctx.arc(x + ox * s + 3, y + oy * s + 4, r * s, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // 云朵白肚
+  ctx.fillStyle = C.white;
+  ctx.strokeStyle = C.black;
+  ctx.lineWidth = 2.5 * Math.min(s, 1.1);
+  blobs.forEach(([ox, oy, r]) => {
+    ctx.beginPath();
+    ctx.arc(x + ox * s, y + oy * s, r * s, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  // 外轮廓描一次更干净
+  ctx.beginPath();
+  blobs.forEach(([ox, oy, r], i) => {
+    if (i === 0) ctx.moveTo(x + ox * s + r * s, y + oy * s);
+    ctx.arc(x + ox * s, y + oy * s, r * s, 0, Math.PI * 2);
+  });
+  ctx.stroke();
+
+  // 腮红
+  ctx.fillStyle = "rgba(244, 168, 200, 0.55)";
+  ctx.beginPath();
+  ctx.ellipse(x + 14 * s, y + 8 * s, 6 * s, 4 * s, 0, 0, Math.PI * 2);
+  ctx.ellipse(x + 46 * s, y + 8 * s, 6 * s, 4 * s, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 小眼睛
+  ctx.fillStyle = C.black;
+  ctx.beginPath();
+  ctx.arc(x + 24 * s, y + 2 * s, 2.2 * s, 0, Math.PI * 2);
+  ctx.arc(x + 38 * s, y + 2 * s, 2.2 * s, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 微笑
+  ctx.strokeStyle = C.black;
+  ctx.lineWidth = 1.8 * s;
+  ctx.beginPath();
+  ctx.arc(x + 31 * s, y + 6 * s, 6 * s, 0.15 * Math.PI, 0.85 * Math.PI);
+  ctx.stroke();
+}
+
+// ---- 回忆弹窗 ----
+function showMemory(cfg) {
+  gamePaused = true;
+  document.getElementById("memory-title").textContent = cfg.title;
+  document.getElementById("memory-caption").textContent = cfg.caption;
+  const mediaEl = document.getElementById("memory-media");
+  mediaEl.innerHTML = "";
+
+  if (cfg.type === "video") {
+    const video = document.createElement("video");
+    video.src = cfg.src;
+    video.controls = true;
+    video.playsInline = true;
+    video.onerror = () => showPlaceholder(mediaEl, cfg);
+    mediaEl.appendChild(video);
+    video.play().catch(() => {});
+  } else {
+    const img = document.createElement("img");
+    img.src = cfg.src;
+    img.alt = cfg.title;
+    img.onerror = () => showPlaceholder(mediaEl, cfg);
+    mediaEl.appendChild(img);
+  }
+  memoryModal.classList.remove("hidden");
+}
+
+function showPlaceholder(el, cfg) {
+  el.innerHTML = `
+    <div style="padding:2rem;text-align:center;color:#555;">
+      <div style="font-size:3rem;margin-bottom:0.5rem;">📷</div>
+      <p style="font-weight:700;">请将照片/视频放入：</p>
+      <code style="color:#A78BFA;font-size:0.85rem;font-weight:800;">${cfg.src}</code>
+    </div>`;
+}
+
+function closeMemory() {
+  memoryModal.classList.add("hidden");
+  const video = memoryModal.querySelector("video");
+  if (video) video.pause();
+  gamePaused = false;
+
+  // 管道口箱子：关闭回忆后站上管道口，进入逃离倒计时
+  if (pendingPipe) {
+    player.x = pendingPipe.x + (pendingPipe.w - player.w) / 2;
+    player.y = pendingPipe.mouthY - player.h;
+    player.vx = 0;
+    player.vy = 0;
+    player.inPipe = "escape_window";
+    player.pipeRef = pendingPipe;
+    player.pipeEscapeTimer = PIPE_ESCAPE_FRAMES;
+    pendingPipe = null;
+  }
+}
+
+// ---- 老虎机 ----
+let insertedCoins = 0;
+let slotSpinning = false;
+let reelTickTimer = null;
+const SLOT_SYMBOLS = ["🎂", "💜", "🎁", "✨", "🌟", "💖", "🎈", "🦄"];
+
+function buildReelStrip(el, highlight = "💜") {
+  // 重复多圈符号，配合 CSS 滚动动画产生真实转轮感
+  const loop = [...SLOT_SYMBOLS, ...SLOT_SYMBOLS, ...SLOT_SYMBOLS];
+  el.innerHTML = loop.map((s) => `<div class="reel-symbol">${s}</div>`).join("");
+  el.dataset.final = highlight;
+  el.style.transform = "translateY(0)";
+  el.style.transition = "none";
+}
+
+function goToMachine() {
+  gamePaused = true;
+  insertedCoins = 0;
+  slotSpinning = false;
+  document.getElementById("machine-coin-display").textContent = "0";
+  document.getElementById("machine-coin-total").textContent = MACHINE_JACKPOT_COINS;
+  document.getElementById("remaining-coins").textContent = totalCoins;
+  document.getElementById("btn-lever").disabled = true;
+  document.getElementById("btn-insert-coin").disabled = totalCoins <= 0;
+  document.getElementById("jackpot-banner").classList.add("hidden");
+  coinWarningModal.classList.add("hidden");
+  resetReels();
+  showScreen("machine");
+}
+
+function resetReels() {
+  ["reel-1", "reel-2", "reel-3"].forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.parentElement.classList.remove("spinning");
+    buildReelStrip(el, SLOT_SYMBOLS[i % SLOT_SYMBOLS.length]);
+  });
+}
+
+function setReelFinal(el, symbol) {
+  el.parentElement.classList.remove("spinning");
+  el.style.transition = "none";
+  el.style.transform = "translateY(0)";
+  el.innerHTML = `<div class="reel-symbol">${symbol}</div>`;
+}
+
+function insertCoin() {
+  if (totalCoins <= 0 || slotSpinning) return;
+  totalCoins--;
+  insertedCoins++;
+  document.getElementById("machine-coin-display").textContent = insertedCoins;
+  document.getElementById("remaining-coins").textContent = totalCoins;
+
+  const slot = document.getElementById("coin-slot");
+  slot.classList.add("inserted");
+  setTimeout(() => slot.classList.remove("inserted"), 200);
+
+  if (totalCoins <= 0) {
+    document.getElementById("btn-insert-coin").disabled = true;
+  }
+  // 投入满 30 枚即可尝试摇手柄
+  if (insertedCoins >= MIN_COINS_TO_ENTER_MACHINE) {
+    document.getElementById("btn-lever").disabled = false;
+  }
+}
+
+function pullLever() {
+  if (insertedCoins < MIN_COINS_TO_ENTER_MACHINE || slotSpinning) return;
+
+  ensureAudio();
+  SFX.lever();
+
+  const lever = document.getElementById("btn-lever");
+  lever.classList.add("pulling");
+  setTimeout(() => lever.classList.remove("pulling"), 400);
+
+  // 30~68 枚：可以摇，但提示不够，不进入 JACKPOT
+  if (insertedCoins < MACHINE_JACKPOT_COINS) {
+    coinWarningModal.classList.remove("hidden");
+    return;
+  }
+
+  slotSpinning = true;
+  document.getElementById("btn-lever").disabled = true;
+  document.getElementById("btn-insert-coin").disabled = true;
+
+  const reels = ["reel-1", "reel-2", "reel-3"].map((id) => document.getElementById(id));
+
+  // 重建长条并开启动画滚动
+  reels.forEach((el) => {
+    buildReelStrip(el);
+    // 强制重绘后再加 spinning，确保动画重启
+    void el.offsetWidth;
+    el.parentElement.classList.add("spinning");
+  });
+
+  if (reelTickTimer) clearInterval(reelTickTimer);
+  reelTickTimer = setInterval(() => SFX.reelTick(), 90);
+
+  const stopDelays = [1200, 1800, 2500];
+  reels.forEach((el, i) => {
+    setTimeout(() => {
+      setReelFinal(el, "💜");
+    }, stopDelays[i]);
+  });
+
+  setTimeout(() => {
+    if (reelTickTimer) { clearInterval(reelTickTimer); reelTickTimer = null; }
+    document.getElementById("jackpot-banner").classList.remove("hidden");
+    reels.forEach((el) => setReelFinal(el, "🎁"));
+    SFX.jackpot();
+  }, 2900);
+
+  setTimeout(() => {
+    giftModal.classList.remove("hidden");
+    slotSpinning = false;
+  }, 3900);
+}
+
+function returnToGame() {
+  // 退回已投入的金币，回关卡继续搜集
+  totalCoins += insertedCoins;
+  insertedCoins = 0;
+  coinWarningModal.classList.add("hidden");
+  levelComplete = false;
+  // 把小人放回门前较远处，方便继续捡附近掉落的金币
+  player.x = levelWidth - TILE * 16;
+  player.y = groundTopY - player.h;
+  player.vx = 0;
+  player.vy = 0;
+  player.facing = -1;
+  gamePaused = false;
+  showScreen("game");
+  updateHUD();
+}
+
+function replay() {
+  giftModal.classList.add("hidden");
+  document.getElementById("jackpot-banner").classList.add("hidden");
+  insertedCoins = 0;
+  showScreen("start");
+}
+
+init();

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300">
+  <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+    <stop offset="0%" style="stop-color:#a29bfe"/>
+    <stop offset="100%" style="stop-color:#6c5ce7"/>
+  </linearGradient></defs>
+  <rect width="400" height="300" fill="url(#g)"/>
+  <text x="200" y="130" text-anchor="middle" fill="white" font-size="28" font-family="sans-serif">回忆 #8</text>
+  <text x="200" y="175" text-anchor="middle" fill="rgba(255,255,255,0.7)" font-size="16" font-family="sans-serif">替换为 box8.jpg</text>
+  <text x="200" y="220" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="40">💕</text>
+</svg>
