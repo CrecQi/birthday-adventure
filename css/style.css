@@ -36,10 +36,16 @@ body {
   color: var(--black);
   overflow: hidden;
   height: 100vh;
+  height: 100dvh;
   width: 100vw;
   touch-action: manipulation;
   -webkit-user-select: none;
   user-select: none;
+  padding:
+    env(safe-area-inset-top, 0)
+    env(safe-area-inset-right, 0)
+    env(safe-area-inset-bottom, 0)
+    env(safe-area-inset-left, 0);
 }
 
 body::before,
@@ -201,6 +207,8 @@ body::after  { bottom: 12%; right: 8%; font-size: 1.3rem; }
 #game-screen {
   justify-content: flex-start;
   background: var(--lavender);
+  height: 100%;
+  min-height: 0;
 }
 
 .hud {
@@ -208,11 +216,13 @@ body::after  { bottom: 12%; right: 8%; font-size: 1.3rem; }
   display: flex;
   justify-content: space-between;
   padding: 0.7rem 1.2rem;
+  padding-top: max(0.7rem, env(safe-area-inset-top, 0px));
   background: var(--white);
   border-bottom: var(--border);
-  font-size: 0.95rem;
+  font-size: clamp(0.78rem, 2.8vw, 0.95rem);
   font-weight: 800;
   z-index: 10;
+  flex-shrink: 0;
 }
 
 .hud strong { color: var(--purple); }
@@ -220,7 +230,8 @@ body::after  { bottom: 12%; right: 8%; font-size: 1.3rem; }
 #game-canvas {
   flex: 1;
   width: 100%;
-  max-height: calc(100vh - 120px);
+  min-height: 0;
+  display: block;
   background: var(--lavender);
 }
 
@@ -228,21 +239,24 @@ body::after  { bottom: 12%; right: 8%; font-size: 1.3rem; }
 .touch-controls {
   display: flex;
   justify-content: center;
-  gap: 1rem;
-  padding: 0.8rem 1rem;
+  align-items: center;
+  gap: clamp(0.6rem, 4vw, 1rem);
+  padding: 0.7rem 1rem;
+  padding-bottom: max(0.7rem, env(safe-area-inset-bottom, 0px));
   background: var(--white);
   border-top: var(--border);
   width: 100%;
+  flex-shrink: 0;
 }
 
 .touch-btn {
-  width: 64px;
-  height: 64px;
+  width: clamp(52px, 14vmin, 64px);
+  height: clamp(52px, 14vmin, 64px);
   border-radius: 50%;
   border: var(--border);
   background: var(--white);
   color: var(--black);
-  font-size: 1.3rem;
+  font-size: clamp(1.1rem, 4vmin, 1.3rem);
   font-weight: 900;
   cursor: pointer;
   box-shadow: var(--shadow-sm);
@@ -250,8 +264,8 @@ body::after  { bottom: 12%; right: 8%; font-size: 1.3rem; }
 }
 
 .touch-btn.jump {
-  width: 72px;
-  height: 72px;
+  width: clamp(58px, 16vmin, 72px);
+  height: clamp(58px, 16vmin, 72px);
   background: var(--purple);
   color: var(--white);
 }
@@ -263,6 +277,74 @@ body::after  { bottom: 12%; right: 8%; font-size: 1.3rem; }
 
 @media (min-width: 768px) {
   .touch-controls { display: none; }
+}
+
+/* 小屏手机适配 */
+@media (max-height: 700px) {
+  .arch-title-wrap {
+    height: min(36vh, 240px);
+  }
+  .arch-title-text {
+    font-size: 68px;
+  }
+  #start-screen .start-content {
+    padding: 1rem 1.1rem 1.2rem;
+  }
+  .subtitle {
+    font-size: 0.88rem;
+    margin-bottom: 1rem;
+  }
+  .machine-content h1 {
+    font-size: 1.45rem;
+  }
+  .slot-body {
+    padding: 1rem 0.9rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .hud {
+    padding-left: 0.8rem;
+    padding-right: 0.8rem;
+  }
+  .machine-content {
+    width: 96%;
+    padding: 0.6rem;
+  }
+  .reel-window,
+  .reel-strip .reel-symbol {
+    width: 58px;
+    height: 58px;
+    line-height: 58px;
+    font-size: 2rem;
+  }
+  @keyframes reelSpin {
+    0%   { transform: translateY(0); }
+    100% { transform: translateY(-58px); }
+  }
+  .modal-content {
+    padding: 1.2rem 1rem;
+    max-height: 90dvh;
+    overflow-y: auto;
+  }
+  .memory-media img,
+  .memory-media video {
+    max-height: 36dvh;
+  }
+}
+
+@media (min-width: 381px) and (max-width: 430px) {
+  .reel-window,
+  .reel-strip .reel-symbol {
+    width: 64px;
+    height: 64px;
+    line-height: 64px;
+    font-size: 2.1rem;
+  }
+  @keyframes reelSpin {
+    0%   { transform: translateY(0); }
+    100% { transform: translateY(-64px); }
+  }
 }
 
 /* ---- 弹窗 ---- */
@@ -345,13 +427,18 @@ body::after  { bottom: 12%; right: 8%; font-size: 1.3rem; }
 }
 
 /* ---- 老虎机 ---- */
-#machine-screen { background: var(--bg); }
+#machine-screen {
+  background: var(--bg);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
 
 .machine-content {
   text-align: center;
-  padding: 1rem;
+  padding: clamp(0.6rem, 2vw, 1rem);
   max-width: 400px;
-  width: 92%;
+  width: min(92vw, 400px);
+  margin: auto;
 }
 
 .machine-content h1 {
@@ -443,68 +530,76 @@ body::after  { bottom: 12%; right: 8%; font-size: 1.3rem; }
 }
 
 .coin-slot {
-  background: var(--bg);
+  width: 100%;
+  background: linear-gradient(180deg, var(--gold) 0%, #FFD966 100%);
   border: var(--border);
-  border-radius: 12px;
-  padding: 0.7rem;
-  margin-bottom: 0.8rem;
-  font-weight: 800;
-  font-size: 0.95rem;
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.9rem;
+  font-weight: 900;
+  font-size: clamp(0.9rem, 3.5vw, 1rem);
   box-shadow: var(--shadow-sm);
-  transition: transform 0.15s;
+  transition: transform 0.12s, box-shadow 0.12s;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--black);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.coin-slot-icon {
+  font-size: 1.35rem;
+}
+
+.coin-slot:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--black);
 }
 
 .coin-slot.inserted {
-  transform: scale(1.05);
-  background: var(--purple-pale);
+  transform: scale(1.03);
+  background: linear-gradient(180deg, #FFF3B0 0%, var(--gold) 100%);
+}
+
+.coin-slot:disabled,
+.coin-slot.disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  background: var(--lavender);
 }
 
 /* 操作按钮 */
 .slot-actions {
   display: flex;
-  gap: 0.6rem;
+  width: 100%;
 }
 
 .btn-coin {
-  flex: 1;
-  background: var(--gold);
-  color: var(--black);
-  border: var(--border);
-  padding: 0.8rem 0.5rem;
-  font-size: 0.95rem;
-  font-weight: 900;
-  border-radius: var(--radius-pill);
-  cursor: pointer;
-  font-family: inherit;
-  box-shadow: var(--shadow-sm);
-}
-
-.btn-coin:active:not(:disabled) {
-  transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0 var(--black);
-}
-
-.btn-coin:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
+  display: none;
 }
 
 .btn-lever {
   flex: 1;
+  width: 100%;
   background: var(--purple);
   color: var(--white);
   border: var(--border);
-  padding: 0.6rem 0.5rem;
+  padding: 0.75rem 0.5rem;
   border-radius: var(--radius-pill);
   cursor: pointer;
   font-family: inherit;
   font-weight: 900;
   box-shadow: var(--shadow-sm);
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 0.1rem;
+  justify-content: center;
+  gap: 0.5rem;
   transition: transform 0.15s;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .lever-knob { font-size: 1.4rem; }
@@ -551,24 +646,36 @@ body::after  { bottom: 12%; right: 8%; font-size: 1.3rem; }
 
 .coin-remaining {
   color: #555;
-  margin-top: 0.8rem;
+  margin: 0;
   font-weight: 700;
+  font-size: clamp(0.85rem, 3vw, 0.95rem);
 }
 
 .coin-remaining strong { color: var(--purple); }
+
+.machine-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.8rem;
+  width: 100%;
+}
 
 .btn-secondary {
   background: var(--white);
   color: var(--black);
   border: var(--border);
   padding: 0.75rem 1.8rem;
-  font-size: 0.95rem;
+  font-size: clamp(0.88rem, 3.2vw, 0.95rem);
   font-weight: 900;
   border-radius: var(--radius-pill);
   cursor: pointer;
   box-shadow: var(--shadow-sm);
   font-family: inherit;
-  margin-top: 0.8rem;
+  margin-top: 0;
+  width: min(100%, 280px);
+  -webkit-tap-highlight-color: transparent;
 }
 
 .btn-secondary:active {

@@ -83,11 +83,13 @@
             <small> / <span id="machine-coin-total">69</span> 枚已投入</small>
           </div>
 
-          <!-- 投币口 -->
-          <div class="coin-slot" id="coin-slot">🪙 投币口</div>
+          <!-- 投币口（点击投币） -->
+          <button type="button" class="coin-slot" id="coin-slot" aria-label="投币">
+            <span class="coin-slot-icon">🪙</span>
+            <span class="coin-slot-label">点击投币口</span>
+          </button>
 
           <div class="slot-actions">
-            <button id="btn-insert-coin" class="btn-coin">🪙 投币</button>
             <button id="btn-lever" class="btn-lever" disabled>
               <span class="lever-knob">🎰</span>
               <span class="lever-label">摇手柄</span>
@@ -102,8 +104,10 @@
         <span>✨ JACKPOT ✨</span>
       </div>
 
-      <p class="coin-remaining">剩余金币：<strong id="remaining-coins">0</strong></p>
-      <button id="btn-return-game" class="btn-secondary">🔙 返回继续冒险</button>
+      <div class="machine-footer">
+        <p class="coin-remaining">剩余金币：<strong id="remaining-coins">0</strong></p>
+        <button id="btn-return-game" class="btn-secondary">🔙 返回继续冒险</button>
+      </div>
 
       <div id="coin-warning-modal" class="modal hidden">
         <div class="modal-content warning-content">

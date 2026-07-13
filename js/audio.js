@@ -86,6 +86,26 @@ const SFX = {
     playTone({ freq: 1568, type: "triangle", duration: 0.12, volume: 0.06, delay: 0.14 });
   },
 
+  // 投币口：清脆叮当
+  coinInsert() {
+    playTone({ freq: 523, type: "sine", duration: 0.08, volume: 0.13 });
+    playTone({ freq: 784, type: "triangle", duration: 0.1, volume: 0.1, delay: 0.04 });
+    playTone({ freq: 1046, type: "sine", duration: 0.07, volume: 0.08, delay: 0.08 });
+  },
+
+  // 返回关卡：轻柔下行
+  returnGame() {
+    playTone({ freq: 440, type: "sine", duration: 0.18, volume: 0.1, slideTo: 330 });
+    playTone({ freq: 330, type: "triangle", duration: 0.22, volume: 0.08, delay: 0.1, slideTo: 262 });
+  },
+
+  // 回去搜集：鼓励式双音
+  warningDismiss() {
+    playTone({ freq: 587, type: "sine", duration: 0.12, volume: 0.11 });
+    playTone({ freq: 698, type: "triangle", duration: 0.15, volume: 0.09, delay: 0.07 });
+    playTone({ freq: 880, type: "sine", duration: 0.1, volume: 0.07, delay: 0.14 });
+  },
+
   // 进入神秘门
   doorEnter() {
     playTone({ freq: 330, type: "sine", duration: 0.3, volume: 0.12, slideTo: 660 });

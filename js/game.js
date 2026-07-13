@@ -3,7 +3,7 @@
 //
 // 箱子三种类型（全部悬空，必须跳起从下方顶开）：
 //   layer 1          ：悬在低空，从地面起跳即可顶到
-//   layer 2          ：悬在高空，需先跳上旁边的台面，再跳一次才能顶到
+//   layer 2          ：放在台面上方，跳上台面再跳一次即可顶开
 //   onPipe = true    ：悬在管道口正上方，只能站在管道口上起跳顶开；
 //                      顶开后会掉进管道（及时按 ←/→ 可逃离），
 //                      从附近另一根管道掉出来
@@ -13,7 +13,7 @@ const GRAVITY = 0.6;
 const FRICTION = 0.85;
 const MOVE_SPEED = 5;
 const JUMP_FORCE = -13; // 最大跳跃高度约 141px ≈ 3.5 格
-const TILE = 40;
+let TILE = 40;
 const SHADOW = 4;
 const HEART_BURST_DELAY = 900; // 先看爱心迸溅，再弹回忆
 const PIPE_ESCAPE_FRAMES = 55; // 掉管道前的逃离窗口（约 0.9 秒）
@@ -58,6 +58,7 @@ let animationId = null;
 // 开箱 / 管道流程状态
 let boxOpeningAnim = false;
 let pendingMemory = null;
+let pendingMemoryRevealStart = 0;
 let pendingPipe = null;
 
 const screens = {
@@ -80,14 +81,18 @@ function init() {
 
   resizeCanvas();
   window.addEventListener("resize", resizeCanvas);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", resizeCanvas);
+  }
 
   document.getElementById("btn-start").addEventListener("click", startGame);
   document.getElementById("btn-close-memory").addEventListener("click", closeMemory);
   document.getElementById("btn-continue").addEventListener("click", closeMemory);
-  document.getElementById("btn-insert-coin").addEventListener("click", insertCoin);
+  document.getElementById("coin-slot").addEventListener("click", insertCoin);
   document.getElementById("btn-lever").addEventListener("click", pullLever);
   document.getElementById("btn-return-game").addEventListener("click", returnToGame);
   document.getElementById("btn-warning-back").addEventListener("click", () => {
+    SFX.warningDismiss();
     coinWarningModal.classList.add("hidden");
     returnToGame();
   });
@@ -99,11 +104,26 @@ function resizeCanvas() {
   const hud = document.querySelector(".hud");
   const controls = document.querySelector(".touch-controls");
   const hudH = hud ? hud.offsetHeight : 40;
-  const ctrlH = controls && window.innerWidth < 768 ? controls.offsetHeight : 0;
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight - hudH - ctrlH;
-  gameWidth = canvas.width;
-  gameHeight = canvas.height;
+  const isMobile = window.innerWidth < 768;
+  const ctrlH = controls && isMobile ? controls.offsetHeight : 0;
+
+  const vv = window.visualViewport;
+  const vw = vv ? vv.width : window.innerWidth;
+  const vh = vv ? vv.height : window.innerHeight;
+
+  gameWidth = vw;
+  gameHeight = Math.max(280, vh - hudH - ctrlH);
+
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.floor(gameWidth * dpr);
+  canvas.height = Math.floor(gameHeight * dpr);
+  canvas.style.width = `${gameWidth}px`;
+  canvas.style.height = `${gameHeight}px`;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function computeTile() {
+  return Math.round(Math.max(32, Math.min(44, gameHeight / 12.5)));
 }
 
 function setupControls() {
@@ -157,23 +177,23 @@ function buildLevel() {
     if (cfg.onPipe) {
       // ---- 管道口悬空箱 ----
       const pipeW = TILE * 1.4;
-      const px = bx + (TILE - pipeW) / 2; // 管道居中在箱子正下方
+      const px = bx + (TILE - pipeW) / 2;
       let mouthY;
 
       if (cfg.layer === 2) {
-        // 高管道：需先跳上旁边台面，再跳上管道口
-        mouthY = groundY - TILE * 5;
+        // 第二层：台面承托，箱子在台面上方，跳上台面再顶
+        const platY = groundY - TILE * 2.5;
+        const platW = TILE * 2.8;
         platforms.push({
-          x: bx - TILE * 3.4, y: groundY - TILE * 2.5,
-          w: TILE * 2, h: TILE * 0.5, type: "platform",
+          x: bx - (platW - TILE) / 2, y: platY,
+          w: platW, h: TILE * 0.5, type: "platform",
         });
+        boxY = platY - TILE;
+        mouthY = platY + TILE * 0.5;
       } else {
-        // 矮管道：从地面直接跳上管道口
         mouthY = groundY - TILE * 2.2;
+        boxY = mouthY - TILE * 2.5;
       }
-
-      // 箱子悬在管道口上方（站在管道口起跳才顶得到）
-      boxY = mouthY - TILE * 2.5;
 
       const exitX = bx + TILE * 3.2;
       const exitMouthY = groundY - TILE * 2.2;
@@ -181,16 +201,17 @@ function buildLevel() {
 
       pipes.push({ x: px, w: pipeW, mouthY, h: groundY - mouthY });
       pipes.push({ x: exitX, w: pipeW, mouthY: exitMouthY, h: groundY - exitMouthY });
-      // 管道是实体：可站上管道口，侧面挡人
       platforms.push({ x: px, y: mouthY, w: pipeW, h: groundY - mouthY, type: "pipe" });
       platforms.push({ x: exitX, y: exitMouthY, w: pipeW, h: groundY - exitMouthY, type: "pipe" });
     } else if (cfg.layer === 2) {
-      // ---- 第二层悬空箱：台面在箱子侧边，箱子纯悬空 ----
+      // ---- 第二层：箱子放在台面上方 ----
+      const platY = groundY - TILE * 2.5;
+      const platW = TILE * 2.8;
       platforms.push({
-        x: bx - TILE * 2.8, y: groundY - TILE * 2.5,
-        w: TILE * 2.2, h: TILE * 0.5, type: "platform",
+        x: bx - (platW - TILE) / 2, y: platY,
+        w: platW, h: TILE * 0.5, type: "platform",
       });
-      boxY = groundY - TILE * 6.5; // 地面跳不到（>3.5格），从台面跳可顶到
+      boxY = platY - TILE;
     } else {
       // ---- 第一层悬空箱：地面起跳即可顶到 ----
       boxY = groundY - TILE * 3;
@@ -239,6 +260,7 @@ function buildLevel() {
   jumpHeld = false;
   boxOpeningAnim = false;
   pendingMemory = null;
+  pendingMemoryRevealStart = 0;
   pendingPipe = null;
   updateHUD();
 }
@@ -248,6 +270,7 @@ function startGame() {
   ensureAudio();
   showScreen("game");
   resizeCanvas();
+  TILE = computeTile();
   buildLevel();
   gamePaused = false;
   if (animationId) cancelAnimationFrame(animationId);
@@ -266,16 +289,14 @@ function gameLoop() {
 }
 
 function update() {
-  // 泡泡、金币、箱子弹跳始终更新（开箱暂停时也要播放迸溅动画）
   updateBubbles();
   updateCoins();
   updateBoxBounce();
 
-  if (boxOpeningAnim) return;
-
   if (player.inPipe) {
     updatePipeState();
     updateCamera();
+    tryRevealMemory();
     return;
   }
 
@@ -288,7 +309,6 @@ function update() {
   else { player.vx *= FRICTION; }
 
   if (jump && !jumpHeld && player.onGround) {
-    // 在神秘门处按跳跃 → 进入老虎机（不会误触自动进入）
     if (tryEnterDoor()) {
       jumpHeld = true;
     } else {
@@ -305,7 +325,6 @@ function update() {
   player.onGround = false;
   player.animFrame++;
 
-  // 平台碰撞（含管道实体的顶面/侧面）
   for (const p of platforms) {
     if (!collides(player, p)) continue;
     if (player.vy > 0 && player.y + player.h - player.vy <= p.y + 6) {
@@ -316,24 +335,25 @@ function update() {
       player.y = p.y + p.h;
       player.vy = 0;
     } else {
-      // 侧面碰撞：推出去（防止穿进管道/平台侧面）
       if (player.x + player.w / 2 < p.x + p.w / 2) player.x = p.x - player.w;
       else player.x = p.x + p.w;
       player.vx = 0;
     }
   }
 
-  // 顶箱子（必须上升中、头部顶到箱底）
-  for (const box of boxes) {
-    if (box.opened) continue;
-    if (
-      player.vy < 0 &&
-      player.x + player.w > box.x &&
-      player.x < box.x + box.w &&
-      player.y <= box.y + box.h &&
-      player.y + player.h > box.y + box.h * 0.5
-    ) {
-      openBox(box);
+  // 开箱等待回忆时不再顶新箱子，但小人可继续落地
+  if (!boxOpeningAnim) {
+    for (const box of boxes) {
+      if (box.opened) continue;
+      if (
+        player.vy < 0 &&
+        player.x + player.w > box.x &&
+        player.x < box.x + box.w &&
+        player.y <= box.y + box.h &&
+        player.y + player.h > box.y + box.h * 0.5
+      ) {
+        openBox(box);
+      }
     }
   }
 
@@ -346,11 +366,27 @@ function update() {
   }
 
   updateCamera();
+  tryRevealMemory();
+}
+
+// 爱心迸溅 → 小人落地 → 金币落地 → 再弹回忆
+function tryRevealMemory() {
+  if (!pendingMemory) return;
+
+  const elapsed = performance.now() - pendingMemoryRevealStart;
+  if (elapsed < HEART_BURST_DELAY) return;
+  if (!player.onGround || Math.abs(player.vy) > 0.5) return;
+  if (coins.some((c) => !c.settled)) return;
+
+  const cfg = pendingMemory;
+  pendingMemory = null;
+  boxOpeningAnim = false;
+  showMemory(cfg);
 }
 
 // 主动进入神秘门（不再靠走近就自动进老虎机）
 function tryEnterDoor() {
-  if (levelComplete || boxOpeningAnim || player.inPipe) return false;
+  if (levelComplete || pendingMemory || player.inPipe) return false;
   if (openedBoxes < BOX_CONFIG.length) return false;
   if (totalCoins < MIN_COINS_TO_ENTER_MACHINE) return false;
   if (!endDoor) return false;
@@ -537,16 +573,10 @@ function openBox(box) {
     pendingPipe = box.pipeRef;
   }
 
-  // 2. 迸溅播完再弹出照片/视频
+  // 2. 等爱心、落地、金币落定后再弹回忆
   boxOpeningAnim = true;
   pendingMemory = cfg;
-  setTimeout(() => {
-    boxOpeningAnim = false;
-    if (pendingMemory) {
-      showMemory(pendingMemory);
-      pendingMemory = null;
-    }
-  }, HEART_BURST_DELAY);
+  pendingMemoryRevealStart = performance.now();
 }
 
 function updateHUD() {
@@ -678,7 +708,7 @@ function render() {
     }
   }
 
-  // 箱子（全部悬空，无任何托板）
+  // 箱子（layer 2 在台面上方）
   for (const box of boxes) {
     const by = box.y + box.bounceY;
     if (box.opened) {
@@ -686,12 +716,6 @@ function render() {
     } else {
       const boxColor = box.layer === 2 ? C.purple : C.purpleLight;
       drawDoodleRect(box.x, by, box.w, box.h, boxColor, { radius: 8 });
-      if (box.layer === 2 && !box.onPipe) {
-        ctx.fillStyle = C.purpleDark;
-        ctx.font = `bold ${TILE * 0.28}px sans-serif`;
-        ctx.textAlign = "center";
-        ctx.fillText("✦", box.x + box.w / 2, by - 6);
-      }
       ctx.fillStyle = C.white;
       ctx.font = `900 ${TILE * 0.55}px sans-serif`;
       ctx.textAlign = "center";
@@ -988,11 +1012,18 @@ function goToMachine() {
   document.getElementById("machine-coin-total").textContent = MACHINE_JACKPOT_COINS;
   document.getElementById("remaining-coins").textContent = totalCoins;
   document.getElementById("btn-lever").disabled = true;
-  document.getElementById("btn-insert-coin").disabled = totalCoins <= 0;
+  updateCoinSlotState();
   document.getElementById("jackpot-banner").classList.add("hidden");
   coinWarningModal.classList.add("hidden");
   resetReels();
   showScreen("machine");
+}
+
+function updateCoinSlotState() {
+  const slot = document.getElementById("coin-slot");
+  const disabled = totalCoins <= 0 || slotSpinning;
+  slot.disabled = disabled;
+  slot.classList.toggle("disabled", disabled);
 }
 
 function resetReels() {
@@ -1012,6 +1043,8 @@ function setReelFinal(el, symbol) {
 
 function insertCoin() {
   if (totalCoins <= 0 || slotSpinning) return;
+  ensureAudio();
+  SFX.coinInsert();
   totalCoins--;
   insertedCoins++;
   document.getElementById("machine-coin-display").textContent = insertedCoins;
@@ -1021,10 +1054,7 @@ function insertCoin() {
   slot.classList.add("inserted");
   setTimeout(() => slot.classList.remove("inserted"), 200);
 
-  if (totalCoins <= 0) {
-    document.getElementById("btn-insert-coin").disabled = true;
-  }
-  // 投入满 30 枚即可尝试摇手柄
+  updateCoinSlotState();
   if (insertedCoins >= MIN_COINS_TO_ENTER_MACHINE) {
     document.getElementById("btn-lever").disabled = false;
   }
@@ -1048,7 +1078,7 @@ function pullLever() {
 
   slotSpinning = true;
   document.getElementById("btn-lever").disabled = true;
-  document.getElementById("btn-insert-coin").disabled = true;
+  updateCoinSlotState();
 
   const reels = ["reel-1", "reel-2", "reel-3"].map((id) => document.getElementById(id));
 
@@ -1084,7 +1114,8 @@ function pullLever() {
 }
 
 function returnToGame() {
-  // 退回已投入的金币，回关卡继续搜集
+  ensureAudio();
+  SFX.returnGame();
   totalCoins += insertedCoins;
   insertedCoins = 0;
   coinWarningModal.classList.add("hidden");
