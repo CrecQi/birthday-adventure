@@ -101,24 +101,44 @@ function init() {
     returnToGame();
   });
   document.getElementById("btn-replay").addEventListener("click", replay);
+  setupButtonSounds();
   setupControls();
   setupStartScreen();
+}
+
+const UI_SOUND_SKIP = new Set(["coin-slot", "btn-lever", "btn-warning-back", "btn-return-game"]);
+
+function setupButtonSounds() {
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (!btn || btn.disabled || btn.classList.contains("touch-btn")) return;
+    if (UI_SOUND_SKIP.has(btn.id)) return;
+    ensureAudio();
+    SFX.buttonClick();
+  });
 }
 
 function setupStartScreen() {
   const loading = document.getElementById("start-loading");
   const ready = document.getElementById("start-ready");
   const fill = document.getElementById("load-fill");
-  const coin = document.getElementById("load-coin");
+  const cat = document.getElementById("load-cat");
   const percent = document.getElementById("load-percent");
   const loadLabel = loading.querySelector(".load-label");
   const screen = document.getElementById("start-screen");
 
+  function wiggleCat() {
+    cat.classList.remove("wiggle");
+    void cat.offsetWidth;
+    cat.classList.add("wiggle");
+  }
+
   function updateProgress(p) {
     const pct = Math.round(p * 100);
     fill.style.width = `${pct}%`;
-    coin.style.left = `calc(${pct}% - 0.7rem)`;
+    cat.style.left = `calc(${pct}% - 0.7rem)`;
     percent.textContent = `${pct}%`;
+    if (pct > 0) wiggleCat();
   }
 
   function revealStartButton() {

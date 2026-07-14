@@ -179,16 +179,37 @@ body::after  { bottom: 12%; right: 8%; font-size: 1.3rem; }
   transition: width 0.12s ease-out;
 }
 
-.load-coin {
+.load-cat {
   position: absolute;
   top: 50%;
   left: 0;
   transform: translate(-50%, -50%);
-  font-size: 1.45rem;
-  line-height: 1;
+  width: 2.5rem;
+  height: 2.5rem;
   transition: left 0.12s ease-out;
   z-index: 2;
   filter: drop-shadow(1px 2px 0 var(--black));
+}
+
+.load-cat-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 85%;
+}
+
+.load-cat.wiggle .load-cat-svg {
+  animation: catWiggle 0.52s ease-in-out;
+}
+
+@keyframes catWiggle {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  15% { transform: rotate(-16deg) translateY(-3px); }
+  30% { transform: rotate(14deg) translateY(1px); }
+  45% { transform: rotate(-10deg) translateY(-2px); }
+  60% { transform: rotate(8deg) translateY(1px); }
+  75% { transform: rotate(-5deg) translateY(0); }
+  90% { transform: rotate(3deg) translateY(0); }
 }
 
 .load-percent {

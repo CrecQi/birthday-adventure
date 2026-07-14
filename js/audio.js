@@ -172,6 +172,11 @@ function playNoise({ duration = 0.12, volume = 0.15, filterFreq = 1200, delay = 
 }
 
 const SFX = {
+  buttonClick() {
+    playTone({ freq: 540, type: "sine", duration: 0.06, volume: 0.09 });
+    playTone({ freq: 820, type: "triangle", duration: 0.05, volume: 0.06, delay: 0.018 });
+  },
+
   boxHit() {
     playNoise({ duration: 0.08, volume: 0.22, filterFreq: 800 });
     playTone({ freq: 220, type: "triangle", duration: 0.12, volume: 0.18, slideTo: 140 });
