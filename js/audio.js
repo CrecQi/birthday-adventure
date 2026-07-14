@@ -214,6 +214,14 @@ const SFX = {
     playTone({ freq: 550, type: "sine", duration: 0.35, volume: 0.08, delay: 0.15, slideTo: 1100 });
   },
 
+  // 从管道另一端弹出：嗖～啵！
+  pipeExit() {
+    playNoise({ duration: 0.1, volume: 0.1, filterFreq: 500 });
+    playTone({ freq: 200, type: "sine", duration: 0.18, volume: 0.12, slideTo: 720 });
+    playTone({ freq: 880, type: "triangle", duration: 0.12, volume: 0.1, delay: 0.1 });
+    playTone({ freq: 1175, type: "sine", duration: 0.08, volume: 0.07, delay: 0.16 });
+  },
+
   lever() {
     playNoise({ duration: 0.1, volume: 0.18, filterFreq: 400 });
     playTone({ freq: 180, type: "sawtooth", duration: 0.2, volume: 0.12, slideTo: 90 });

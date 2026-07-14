@@ -32,6 +32,7 @@ const C = {
   grass: "#DDD6FE",
   ground: "#EDE9FE",
   gold: "#FFE08A",
+  coinHeart: "#E53935",
   pipe: "#86EFAC",
   pipeDark: "#6EE7A0",
   heart: "#E9D5FF",
@@ -348,6 +349,7 @@ function startGame() {
   resizeCanvas();
   TILE = computeTile();
   buildLevel();
+  preloadBoxMedia();
   gamePaused = false;
   if (animationId) cancelAnimationFrame(animationId);
   gameLoop();
@@ -571,6 +573,8 @@ function updatePipeState() {
     player.pipeWait--;
     if (player.pipeWait <= 0) {
       // 从出口管道弹出
+      ensureAudio();
+      SFX.pipeExit();
       player.x = pipe.exitX + (pipe.exitW - player.w) / 2;
       player.y = pipe.exitMouthY - player.h - 2;
       player.vy = -11;
@@ -719,6 +723,24 @@ function drawPipe(pipe) {
   drawDoodleRect(pipe.x - 4, pipe.mouthY, pipe.w + 8, rimH, C.pipeDark, { radius: 6, shadow: false });
 }
 
+function drawCoinHeart(cx, cy) {
+  const s = 7;
+  // 爱心几何中心约在 y = 0.35s，上移后与金币圆心对齐
+  const centerY = s * 0.35;
+  ctx.save();
+  ctx.translate(cx, cy - centerY);
+  ctx.fillStyle = C.coinHeart;
+  ctx.strokeStyle = C.black;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, s * 0.3);
+  ctx.bezierCurveTo(-s, -s * 0.3, -s, s * 0.5, 0, s);
+  ctx.bezierCurveTo(s, s * 0.5, s, -s * 0.3, 0, s * 0.3);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
 function drawHeartBubble(h) {
   ctx.save();
   ctx.translate(h.x, h.y);
@@ -818,11 +840,7 @@ function render() {
     ctx.strokeStyle = C.black;
     ctx.lineWidth = 2.5;
     ctx.stroke();
-    ctx.fillStyle = C.white;
-    ctx.font = "bold 10px sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("♥", c.x, cy + 1);
+    drawCoinHeart(c.x, cy);
   }
 
   // 终点神秘门
@@ -989,6 +1007,25 @@ function drawDoodleCloud(x, y, scale) {
 }
 
 // ---- 回忆弹窗 ----
+const mediaPreloadCache = new Map();
+
+function preloadBoxMedia() {
+  BOX_CONFIG.forEach((cfg) => {
+    if (mediaPreloadCache.has(cfg.src)) return;
+    if (cfg.type === "video") {
+      const video = document.createElement("video");
+      video.preload = "auto";
+      video.src = cfg.src;
+      video.load();
+      mediaPreloadCache.set(cfg.src, video);
+    } else {
+      const img = new Image();
+      img.src = cfg.src;
+      mediaPreloadCache.set(cfg.src, img);
+    }
+  });
+}
+
 function showMemory(cfg) {
   gamePaused = true;
   document.getElementById("memory-title").textContent = cfg.title;
@@ -997,10 +1034,12 @@ function showMemory(cfg) {
   mediaEl.innerHTML = "";
 
   if (cfg.type === "video") {
-    const video = document.createElement("video");
+    const cached = mediaPreloadCache.get(cfg.src);
+    const video = cached instanceof HTMLVideoElement ? cached.cloneNode(true) : document.createElement("video");
     video.src = cfg.src;
     video.controls = true;
     video.playsInline = true;
+    video.preload = "auto";
     video.onerror = () => showPlaceholder(mediaEl, cfg);
     mediaEl.appendChild(video);
     video.play().catch(() => {});
@@ -1008,6 +1047,8 @@ function showMemory(cfg) {
     const img = document.createElement("img");
     img.src = cfg.src;
     img.alt = cfg.title;
+    img.loading = "eager";
+    img.decoding = "async";
     img.onerror = () => showPlaceholder(mediaEl, cfg);
     mediaEl.appendChild(img);
   }
