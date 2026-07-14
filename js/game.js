@@ -181,13 +181,12 @@ function buildLevel() {
       const mouthY = groundY - TILE * 2.2;
       boxY = mouthY - TILE * 2.5;
 
-      // 第二层管道箱：台面在左侧，箱子高悬在管道上方
+      // 第二层：侧面放台面辅助上台，台面不压在管道上方
       if (cfg.layer === 2) {
         platforms.push({
-          x: bx - TILE * 4.5, y: groundY - TILE * 2.5,
-          w: TILE * 2.5, h: TILE * 0.5, type: "platform",
+          x: bx - TILE * 3.8, y: groundY - TILE * 2.5,
+          w: TILE * 2.2, h: TILE * 0.5, type: "platform",
         });
-        boxY = mouthY - TILE * 3.8;
       }
 
       // 出口管道默认在右侧；若会撞到终点门则放到左侧
@@ -201,13 +200,15 @@ function buildLevel() {
       platforms.push({ x: px, y: mouthY, w: pipeW, h: groundY - mouthY, type: "pipe" });
       platforms.push({ x: exitX, y: exitMouthY, w: pipeW, h: groundY - exitMouthY, type: "pipe" });
     } else if (cfg.layer === 2) {
-      // ---- 第二层悬空箱：台面在左侧，箱子高悬于右侧空中（不与台面上下对齐）----
+      // ---- 第二层悬空箱：悬在台面上方 3.8 格（接近跳跃极限），
+      //      必须站上台面、全力跳起才顶得到 ----
       const platY = groundY - TILE * 2.5;
+      const platW = TILE * 3;
       platforms.push({
-        x: bx - TILE * 4.5, y: platY,
-        w: TILE * 2.5, h: TILE * 0.5, type: "platform",
+        x: bx - (platW - TILE) / 2, y: platY,
+        w: platW, h: TILE * 0.5, type: "platform",
       });
-      boxY = groundY - TILE * 6.5;
+      boxY = platY - TILE * 4.8;
     } else {
       // ---- 第一层悬空箱：地面起跳即可顶到 ----
       boxY = groundY - TILE * 3;
