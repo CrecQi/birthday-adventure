@@ -127,7 +127,12 @@ function setupStartScreen() {
   const loadLabel = loading.querySelector(".load-label");
   const screen = document.getElementById("start-screen");
 
+  let lastCatWiggle = 0;
+
   function wiggleCat() {
+    const now = performance.now();
+    if (now - lastCatWiggle < 1300) return;
+    lastCatWiggle = now;
     cat.classList.remove("wiggle");
     void cat.offsetWidth;
     cat.classList.add("wiggle");

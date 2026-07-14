@@ -199,17 +199,13 @@ body::after  { bottom: 12%; right: 8%; font-size: 1.3rem; }
 }
 
 .load-cat.wiggle .load-cat-svg {
-  animation: catWiggle 0.52s ease-in-out;
+  animation: catWiggle 1.35s cubic-bezier(0.45, 0, 0.55, 1);
 }
 
 @keyframes catWiggle {
-  0%, 100% { transform: rotate(0deg) translateY(0); }
-  15% { transform: rotate(-16deg) translateY(-3px); }
-  30% { transform: rotate(14deg) translateY(1px); }
-  45% { transform: rotate(-10deg) translateY(-2px); }
-  60% { transform: rotate(8deg) translateY(1px); }
-  75% { transform: rotate(-5deg) translateY(0); }
-  90% { transform: rotate(3deg) translateY(0); }
+  0%, 100% { transform: rotate(0deg); }
+  30% { transform: rotate(-8deg); }
+  70% { transform: rotate(8deg); }
 }
 
 .load-percent {
