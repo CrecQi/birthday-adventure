@@ -1041,20 +1041,93 @@ function drawDoodleCloud(x, y, scale) {
 const mediaPreloadCache = new Map();
 
 function preloadBoxMedia() {
-  BOX_CONFIG.forEach((cfg) => {
+  const items = [...BOX_CONFIG].sort((a, b) => {
+    if (a.type === "video" && b.type !== "video") return -1;
+    if (b.type === "video" && a.type !== "video") return 1;
+    return 0;
+  });
+  items.forEach((cfg) => {
     if (mediaPreloadCache.has(cfg.src)) return;
     if (cfg.type === "video") {
-      const video = document.createElement("video");
-      video.preload = "auto";
-      video.src = cfg.src;
-      video.load();
-      mediaPreloadCache.set(cfg.src, video);
-    } else {
+      getMemoryVideo(cfg);
+    } else if (cfg.type === "image" && !cfg.src.endsWith(".svg")) {
       const img = new Image();
+      img.decoding = "async";
       img.src = cfg.src;
       mediaPreloadCache.set(cfg.src, img);
     }
   });
+}
+
+function showMemoryLoading(mediaEl, kind = "image") {
+  const icon = kind === "video" ? "🎬" : "📷";
+  const text = kind === "video" ? "视频加载中…" : "照片加载中…";
+  mediaEl.innerHTML = `<div class="memory-loading"><span>${icon}</span><p>${text}</p></div>`;
+}
+
+function getMemoryVideo(cfg) {
+  let video = mediaPreloadCache.get(cfg.src);
+  if (!(video instanceof HTMLVideoElement)) {
+    video = document.createElement("video");
+    video.preload = "auto";
+    video.playsInline = true;
+    video.src = cfg.src;
+    if (cfg.poster) {
+      video.poster = cfg.poster;
+      const poster = new Image();
+      poster.decoding = "async";
+      poster.src = cfg.poster;
+    }
+    video.load();
+    mediaPreloadCache.set(cfg.src, video);
+  }
+  return video;
+}
+
+function mountMemoryVideo(cfg, mediaEl) {
+  const video = getMemoryVideo(cfg);
+  video.controls = true;
+  video.playsInline = true;
+  video.preload = "auto";
+  video.volume = VIDEO_VOLUME;
+  if (cfg.poster) video.poster = cfg.poster;
+  video.onerror = () => showPlaceholder(mediaEl, cfg);
+
+  mediaEl.innerHTML = "";
+  mediaEl.appendChild(video);
+  mediaEl.classList.toggle("is-loading", video.readyState < 2);
+
+  const startPlayback = () => {
+    mediaEl.classList.remove("is-loading");
+    setBgmDucked(true);
+    video.play().catch(() => {});
+  };
+
+  if (video.readyState >= 2) {
+    startPlayback();
+  } else {
+    video.addEventListener("canplay", startPlayback, { once: true });
+    video.addEventListener("error", () => showPlaceholder(mediaEl, cfg), { once: true });
+    video.load();
+  }
+}
+
+function createMemoryPicture(cfg) {
+  const picture = document.createElement("picture");
+  const baseUrl = cfg.src.split("?")[0];
+  const query = cfg.src.includes("?") ? "?" + cfg.src.split("?").slice(1).join("?") : "";
+  if (/\.jpe?g$/i.test(baseUrl)) {
+    const source = document.createElement("source");
+    source.type = "image/webp";
+    source.srcset = baseUrl.replace(/\.jpe?g$/i, ".webp") + query;
+    picture.appendChild(source);
+  }
+  const img = document.createElement("img");
+  img.alt = cfg.title;
+  img.decoding = "async";
+  img.src = cfg.src;
+  picture.appendChild(img);
+  return { picture, img };
 }
 
 function showMemory(cfg) {
@@ -1065,29 +1138,23 @@ function showMemory(cfg) {
   mediaEl.innerHTML = "";
 
   if (cfg.type === "video") {
-    const cached = mediaPreloadCache.get(cfg.src);
-    const video = cached instanceof HTMLVideoElement ? cached.cloneNode(true) : document.createElement("video");
-    video.src = cfg.src;
-    video.controls = true;
-    video.playsInline = true;
-    video.preload = "auto";
-    video.volume = VIDEO_VOLUME;
-    video.onerror = () => showPlaceholder(mediaEl, cfg);
-    mediaEl.appendChild(video);
-    setBgmDucked(true);
-    video.play().catch(() => {});
+    mountMemoryVideo(cfg, mediaEl);
   } else {
-    const img = document.createElement("img");
-    img.alt = cfg.title;
-    img.loading = "eager";
-    img.decoding = "sync";
-    img.onerror = () => showPlaceholder(mediaEl, cfg);
-    img.onload = () => {
-      if (!img.naturalWidth) showPlaceholder(mediaEl, cfg);
-    };
-    img.src = cfg.src;
-    mediaEl.appendChild(img);
+    showMemoryLoading(mediaEl);
     setBgmDucked(false);
+    const cached = mediaPreloadCache.get(cfg.src);
+    const { picture, img } = createMemoryPicture(cfg);
+    const reveal = () => {
+      if (!img.naturalWidth) return showPlaceholder(mediaEl, cfg);
+      mediaEl.innerHTML = "";
+      mediaEl.appendChild(picture);
+    };
+    img.onerror = () => showPlaceholder(mediaEl, cfg);
+    if (cached instanceof HTMLImageElement && cached.complete && cached.naturalWidth > 0) {
+      reveal();
+    } else {
+      img.onload = reveal;
+    }
   }
   memoryModal.classList.remove("hidden");
 }
@@ -1104,7 +1171,10 @@ function showPlaceholder(el, cfg) {
 function closeMemory() {
   memoryModal.classList.add("hidden");
   const video = memoryModal.querySelector("video");
-  if (video) video.pause();
+  if (video) {
+    video.pause();
+    video.remove();
+  }
   setBgmDucked(false);
   gamePaused = false;
 
