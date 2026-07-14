@@ -1078,11 +1078,14 @@ function showMemory(cfg) {
     video.play().catch(() => {});
   } else {
     const img = document.createElement("img");
-    img.src = cfg.src;
     img.alt = cfg.title;
     img.loading = "eager";
-    img.decoding = "async";
+    img.decoding = "sync";
     img.onerror = () => showPlaceholder(mediaEl, cfg);
+    img.onload = () => {
+      if (!img.naturalWidth) showPlaceholder(mediaEl, cfg);
+    };
+    img.src = cfg.src;
     mediaEl.appendChild(img);
     setBgmDucked(false);
   }

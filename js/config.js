@@ -40,7 +40,7 @@ const BOX_CONFIG = [
     title: "猫咪和小p",
     caption: "和小宝逛了家具展，然后去码头的咖啡店撸猫，拍到小猫的头和卡姿兰小宝",
     type: "image",
-    src: "assets/media/box4.jpg",
+    src: "assets/media/box4.png?v=1",
     coins: 7,
     layer: 2,
     onPipe: false,
