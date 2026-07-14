@@ -4,6 +4,18 @@
 
 let audioCtx = null;
 
+// ---- 背景音乐（循环播放）----
+let bgm = null;
+
+function startBGM() {
+  if (!bgm) {
+    bgm = new Audio("assets/audio/bgm.mp3");
+    bgm.loop = true;
+    bgm.volume = 0.35;
+  }
+  bgm.play().catch(() => {});
+}
+
 function ensureAudio() {
   if (!audioCtx) {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();

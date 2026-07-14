@@ -200,15 +200,15 @@ function buildLevel() {
       platforms.push({ x: px, y: mouthY, w: pipeW, h: groundY - mouthY, type: "pipe" });
       platforms.push({ x: exitX, y: exitMouthY, w: pipeW, h: groundY - exitMouthY, type: "pipe" });
     } else if (cfg.layer === 2) {
-      // ---- 第二层悬空箱：悬在台面上方 3.8 格（接近跳跃极限），
-      //      必须站上台面、全力跳起才顶得到 ----
+      // ---- 第二层悬空箱：台面在箱子正下方，箱子悬空 2.5 格，
+      //      站上台面后跳一次即可顶到 ----
       const platY = groundY - TILE * 2.5;
       const platW = TILE * 3;
       platforms.push({
         x: bx - (platW - TILE) / 2, y: platY,
         w: platW, h: TILE * 0.5, type: "platform",
       });
-      boxY = platY - TILE * 4.8;
+      boxY = platY - TILE * 3.5;
     } else {
       // ---- 第一层悬空箱：地面起跳即可顶到 ----
       boxY = groundY - TILE * 3;
@@ -225,6 +225,17 @@ function buildLevel() {
       pipeRef,
     });
   });
+
+  // 保障：台面绝不出现在管道上方（水平重叠则左移错开）
+  const pipeSolids = platforms.filter((p) => p.type === "pipe");
+  for (const pl of platforms) {
+    if (pl.type !== "platform") continue;
+    for (const pp of pipeSolids) {
+      if (pl.x < pp.x + pp.w && pl.x + pl.w > pp.x) {
+        pl.x = pp.x - pl.w - TILE * 0.5;
+      }
+    }
+  }
 
   const flagX = levelWidth - TILE * 3;
   // 终点神秘门（替代旗帜，需主动按跳跃进入）
@@ -265,6 +276,7 @@ function buildLevel() {
 // ---- 游戏循环 ----
 function startGame() {
   ensureAudio();
+  startBGM();
   showScreen("game");
   resizeCanvas();
   TILE = computeTile();
