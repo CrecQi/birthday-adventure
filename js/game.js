@@ -127,23 +127,11 @@ function setupStartScreen() {
   const loadLabel = loading.querySelector(".load-label");
   const screen = document.getElementById("start-screen");
 
-  let lastCatWiggle = 0;
-
-  function wiggleCat() {
-    const now = performance.now();
-    if (now - lastCatWiggle < 1300) return;
-    lastCatWiggle = now;
-    cat.classList.remove("wiggle");
-    void cat.offsetWidth;
-    cat.classList.add("wiggle");
-  }
-
   function updateProgress(p) {
     const pct = Math.round(p * 100);
     fill.style.width = `${pct}%`;
     cat.style.left = `calc(${pct}% - 0.7rem)`;
     percent.textContent = `${pct}%`;
-    if (pct > 0) wiggleCat();
   }
 
   function revealStartButton() {
