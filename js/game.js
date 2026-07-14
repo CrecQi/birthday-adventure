@@ -59,10 +59,11 @@ let animationId = null;
 // 开箱 / 管道流程状态
 let boxOpeningAnim = false;
 let pendingMemory = null;
+let pendingMemoryIsReopen = false;
 let pendingMemoryRevealStart = 0;
 let pendingPipe = null;
 let boxRehitCooldown = 0;
-const VIDEO_VOLUME = 0.35;
+const VIDEO_VOLUME = 0.05;
 
 const screens = {
   start: document.getElementById("start-screen"),
@@ -339,6 +340,7 @@ function buildLevel() {
   jumpHeld = false;
   boxOpeningAnim = false;
   pendingMemory = null;
+  pendingMemoryIsReopen = false;
   pendingMemoryRevealStart = 0;
   pendingPipe = null;
   boxRehitCooldown = 0;
@@ -429,7 +431,7 @@ function update() {
       if (!isHittingBoxFromBelow(box)) continue;
       if (box.opened) {
         if (boxRehitCooldown === 0 && !gamePaused) {
-          showMemory(box.config);
+          reopenBox(box);
           boxRehitCooldown = 28;
           player.vy = 2;
         }
@@ -459,10 +461,11 @@ function tryRevealMemory() {
   const elapsed = performance.now() - pendingMemoryRevealStart;
   if (elapsed < HEART_BURST_DELAY) return;
   if (!player.onGround || Math.abs(player.vy) > 0.5) return;
-  if (coins.some((c) => !c.settled)) return;
+  if (!pendingMemoryIsReopen && coins.some((c) => !c.settled)) return;
 
   const cfg = pendingMemory;
   pendingMemory = null;
+  pendingMemoryIsReopen = false;
   boxOpeningAnim = false;
   showMemory(cfg);
 }
@@ -639,10 +642,23 @@ function isHittingBoxFromBelow(box) {
   );
 }
 
+function triggerBoxOpenPresentation(box) {
+  box.bounceVel = -6;
+  SFX.boxHit();
+  SFX.coinBurst();
+  spawnHeartBurst(box.x + box.w / 2, box.y + box.h / 2, 1.2);
+}
+
+function startMemoryReveal(cfg, isReopen = false) {
+  boxOpeningAnim = true;
+  pendingMemory = cfg;
+  pendingMemoryIsReopen = isReopen;
+  pendingMemoryRevealStart = performance.now();
+}
+
 function openBox(box) {
   if (box.opened || boxOpeningAnim) return;
   box.opened = true;
-  box.bounceVel = -6;
   openedBoxes++;
 
   const cfg = box.config;
@@ -658,20 +674,20 @@ function openBox(box) {
     });
   }
 
-  // 1. 先迸溅爆破爱心泡泡
-  SFX.boxHit();
-  SFX.coinBurst();
-  spawnHeartBurst(box.x + box.w / 2, box.y + box.h / 2, 1.2);
+  triggerBoxOpenPresentation(box);
   updateHUD();
 
   if (box.onPipe && box.pipeRef) {
     pendingPipe = box.pipeRef;
   }
 
-  // 2. 等爱心、落地、金币落定后再弹回忆
-  boxOpeningAnim = true;
-  pendingMemory = cfg;
-  pendingMemoryRevealStart = performance.now();
+  startMemoryReveal(cfg, false);
+}
+
+function reopenBox(box) {
+  if (boxOpeningAnim || gamePaused) return;
+  triggerBoxOpenPresentation(box);
+  startMemoryReveal(box.config, true);
 }
 
 function updateHUD() {
