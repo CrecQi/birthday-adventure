@@ -12,6 +12,11 @@ let bgmGain = null;
 let bgmSource = null;
 let bgmPlaying = false;
 
+function setBgmDucked(duck) {
+  if (!bgmGain) return;
+  bgmGain.gain.value = duck ? BGM_VOLUME * 0.55 : BGM_VOLUME;
+}
+
 function ensureAudio() {
   if (!audioCtx) {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();

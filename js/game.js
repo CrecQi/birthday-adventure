@@ -61,6 +61,8 @@ let boxOpeningAnim = false;
 let pendingMemory = null;
 let pendingMemoryRevealStart = 0;
 let pendingPipe = null;
+let boxRehitCooldown = 0;
+const VIDEO_VOLUME = 0.35;
 
 const screens = {
   start: document.getElementById("start-screen"),
@@ -339,6 +341,7 @@ function buildLevel() {
   pendingMemory = null;
   pendingMemoryRevealStart = 0;
   pendingPipe = null;
+  boxRehitCooldown = 0;
   updateHUD();
 }
 
@@ -419,19 +422,21 @@ function update() {
     }
   }
 
-  // 开箱等待回忆时不再顶新箱子，但小人可继续落地
+  // 顶箱子：未开的走完整流程；已开的可再次顶开看回忆
   if (!boxOpeningAnim) {
+    if (boxRehitCooldown > 0) boxRehitCooldown--;
     for (const box of boxes) {
-      if (box.opened) continue;
-      if (
-        player.vy < 0 &&
-        player.x + player.w > box.x &&
-        player.x < box.x + box.w &&
-        player.y <= box.y + box.h &&
-        player.y + player.h > box.y + box.h * 0.5
-      ) {
+      if (!isHittingBoxFromBelow(box)) continue;
+      if (box.opened) {
+        if (boxRehitCooldown === 0 && !gamePaused) {
+          showMemory(box.config);
+          boxRehitCooldown = 28;
+          player.vy = 2;
+        }
+      } else {
         openBox(box);
       }
+      break;
     }
   }
 
@@ -622,6 +627,16 @@ function spawnHeartBurst(x, y, scale = 1) {
       isHeart: Math.random() > 0.3,
     });
   }
+}
+
+function isHittingBoxFromBelow(box) {
+  return (
+    player.vy < 0 &&
+    player.x + player.w > box.x &&
+    player.x < box.x + box.w &&
+    player.y <= box.y + box.h &&
+    player.y + player.h > box.y + box.h * 0.5
+  );
 }
 
 function openBox(box) {
@@ -1040,8 +1055,10 @@ function showMemory(cfg) {
     video.controls = true;
     video.playsInline = true;
     video.preload = "auto";
+    video.volume = VIDEO_VOLUME;
     video.onerror = () => showPlaceholder(mediaEl, cfg);
     mediaEl.appendChild(video);
+    setBgmDucked(true);
     video.play().catch(() => {});
   } else {
     const img = document.createElement("img");
@@ -1051,6 +1068,7 @@ function showMemory(cfg) {
     img.decoding = "async";
     img.onerror = () => showPlaceholder(mediaEl, cfg);
     mediaEl.appendChild(img);
+    setBgmDucked(false);
   }
   memoryModal.classList.remove("hidden");
 }
@@ -1068,6 +1086,7 @@ function closeMemory() {
   memoryModal.classList.add("hidden");
   const video = memoryModal.querySelector("video");
   if (video) video.pause();
+  setBgmDucked(false);
   gamePaused = false;
 
   // 管道口箱子：关闭回忆后站上管道口，进入逃离倒计时
