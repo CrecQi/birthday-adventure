@@ -4,7 +4,7 @@
 // ============================================================
 
 const BGM_URL = "assets/audio/bgm.mp3";
-const BGM_VOLUME = 0.1;
+const BGM_VOLUME = 0.15;
 
 let audioCtx = null;
 let bgmBuffer = null;

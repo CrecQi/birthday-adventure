@@ -9,10 +9,10 @@
 //                      从附近另一根管道掉出来
 // ============================================================
 
-const GRAVITY = 0.6;
+const GRAVITY = 0.44;
 const FRICTION = 0.85;
 const MOVE_SPEED = 5;
-const JUMP_FORCE = -13; // 最大跳跃高度约 141px ≈ 3.5 格
+const JUMP_FORCE = -11.1; // 起跳/落地更慢，高度仍约 3.5 格
 let TILE = 40;
 const SHADOW = 4;
 const HEART_BURST_DELAY = 900; // 先看爱心迸溅，再弹回忆
