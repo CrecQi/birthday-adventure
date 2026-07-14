@@ -98,6 +98,54 @@ function init() {
   });
   document.getElementById("btn-replay").addEventListener("click", replay);
   setupControls();
+  setupStartScreen();
+}
+
+function setupStartScreen() {
+  const loading = document.getElementById("start-loading");
+  const ready = document.getElementById("start-ready");
+  const fill = document.getElementById("load-fill");
+  const coin = document.getElementById("load-coin");
+  const percent = document.getElementById("load-percent");
+
+  function updateProgress(p) {
+    const pct = Math.round(p * 100);
+    fill.style.width = `${pct}%`;
+    coin.style.left = `calc(${pct}% - 0.7rem)`;
+    percent.textContent = `${pct}%`;
+  }
+
+  function revealStartButton() {
+    loading.classList.add("hidden");
+    ready.classList.remove("hidden");
+  }
+
+  function waitForBGMPlay() {
+    return preloadBGM(updateProgress).then((played) => {
+      if (played) {
+        revealStartButton();
+        return;
+      }
+      // 浏览器阻止自动播放时，等用户点击屏幕解锁
+      percent.textContent = "点击屏幕播放音乐";
+      return new Promise((resolve) => {
+        const unlock = () => {
+          ensureAudio().resume().then(() => startBGM()).then(() => {
+            revealStartButton();
+            resolve();
+          });
+        };
+        document.getElementById("start-screen").addEventListener("pointerdown", unlock, { once: true });
+      });
+    }).catch(() => {
+      percent.textContent = "音乐加载失败，点击屏幕重试";
+      document.getElementById("start-screen").addEventListener("pointerdown", () => {
+        setupStartScreen();
+      }, { once: true });
+    });
+  }
+
+  waitForBGMPlay();
 }
 
 function resizeCanvas() {
@@ -276,7 +324,6 @@ function buildLevel() {
 // ---- 游戏循环 ----
 function startGame() {
   ensureAudio();
-  startBGM();
   showScreen("game");
   resizeCanvas();
   TILE = computeTile();
@@ -1122,6 +1169,11 @@ function replay() {
   document.getElementById("jackpot-banner").classList.add("hidden");
   insertedCoins = 0;
   showScreen("start");
+  if (bgmBuffer) {
+    document.getElementById("start-loading").classList.add("hidden");
+    document.getElementById("start-ready").classList.remove("hidden");
+    if (!bgmPlaying) startBGM();
+  }
 }
 
 init();

@@ -1,20 +1,16 @@
 // ============================================================
 // 音效 — Web Audio API 合成（无需外部音频文件）
+// 背景音乐 — Web Audio 无缝循环（10% 音量）
 // ============================================================
 
+const BGM_URL = "assets/audio/bgm.mp3";
+const BGM_VOLUME = 0.1;
+
 let audioCtx = null;
-
-// ---- 背景音乐（循环播放）----
-let bgm = null;
-
-function startBGM() {
-  if (!bgm) {
-    bgm = new Audio("assets/audio/bgm.mp3");
-    bgm.loop = true;
-    bgm.volume = 0.35;
-  }
-  bgm.play().catch(() => {});
-}
+let bgmBuffer = null;
+let bgmGain = null;
+let bgmSource = null;
+let bgmPlaying = false;
 
 function ensureAudio() {
   if (!audioCtx) {
@@ -24,6 +20,95 @@ function ensureAudio() {
     audioCtx.resume();
   }
   return audioCtx;
+}
+
+// 裁掉首尾静音，让循环更无缝
+function trimBufferSilence(buffer, threshold = 0.008) {
+  const data = buffer.getChannelData(0);
+  let start = 0;
+  let end = data.length - 1;
+  while (start < end && Math.abs(data[start]) < threshold) start++;
+  while (end > start && Math.abs(data[end]) < threshold) end--;
+  const len = end - start + 1;
+  if (len <= buffer.sampleRate * 0.5) return buffer;
+
+  const trimmed = audioCtx.createBuffer(1, len, buffer.sampleRate);
+  trimmed.getChannelData(0).set(data.subarray(start, end + 1));
+  return trimmed;
+}
+
+function playBGMLoop() {
+  if (!bgmBuffer) return;
+  const ctx = ensureAudio();
+
+  if (!bgmGain) {
+    bgmGain = ctx.createGain();
+    bgmGain.gain.value = BGM_VOLUME;
+    bgmGain.connect(ctx.destination);
+  }
+
+  if (bgmSource) {
+    try { bgmSource.stop(); } catch (_) { /* already stopped */ }
+    bgmSource.disconnect();
+  }
+
+  bgmSource = ctx.createBufferSource();
+  bgmSource.buffer = bgmBuffer;
+  bgmSource.loop = true;
+  bgmSource.connect(bgmGain);
+  bgmSource.start(0);
+  bgmPlaying = true;
+}
+
+function startBGM() {
+  if (!bgmBuffer) return Promise.resolve(false);
+  const ctx = ensureAudio();
+  return ctx.resume().then(() => {
+    if (ctx.state !== "running") return false;
+    playBGMLoop();
+    return true;
+  }).catch(() => false);
+}
+
+// 带进度的预加载：下载 → 解码 → 自动播放
+function preloadBGM(onProgress) {
+  return fetch(BGM_URL)
+    .then((response) => {
+      if (!response.ok) throw new Error("BGM fetch failed");
+      const total = Number(response.headers.get("Content-Length")) || 0;
+      const reader = response.body.getReader();
+      const chunks = [];
+      let loaded = 0;
+
+      function pump() {
+        return reader.read().then(({ done, value }) => {
+          if (done) {
+            const merged = new Uint8Array(loaded);
+            let offset = 0;
+            for (const chunk of chunks) {
+              merged.set(chunk, offset);
+              offset += chunk.length;
+            }
+            onProgress(0.95);
+            return merged.buffer;
+          }
+          chunks.push(value);
+          loaded += value.length;
+          if (total > 0) onProgress(Math.min(loaded / total, 0.9));
+          return pump();
+        });
+      }
+      return pump();
+    })
+    .then((arrayBuffer) => {
+      const ctx = ensureAudio();
+      return ctx.decodeAudioData(arrayBuffer);
+    })
+    .then((buffer) => {
+      bgmBuffer = trimBufferSilence(buffer);
+      onProgress(1);
+      return startBGM();
+    });
 }
 
 function playTone({ freq = 440, type = "sine", duration = 0.15, volume = 0.2, slideTo = null, delay = 0 }) {
@@ -70,27 +155,23 @@ function playNoise({ duration = 0.12, volume = 0.15, filterFreq = 1200, delay = 
 }
 
 const SFX = {
-  // 撞击箱子：短促木块敲击感
   boxHit() {
     playNoise({ duration: 0.08, volume: 0.22, filterFreq: 800 });
     playTone({ freq: 220, type: "triangle", duration: 0.12, volume: 0.18, slideTo: 140 });
     playTone({ freq: 440, type: "square", duration: 0.06, volume: 0.08 });
   },
 
-  // 金币/爱心迸溅：一串轻快叮叮
   coinBurst() {
     [660, 880, 1100, 1320].forEach((f, i) => {
       playTone({ freq: f, type: "sine", duration: 0.1, volume: 0.1, delay: i * 0.04 });
     });
   },
 
-  // 金币落地：清脆叮
   coinLand() {
     playTone({ freq: 880, type: "sine", duration: 0.07, volume: 0.1 });
     playTone({ freq: 1175, type: "triangle", duration: 0.09, volume: 0.07, delay: 0.02 });
   },
 
-  // 捡起金币：可爱上行叮咚
   coinCollect() {
     [784, 988, 1175].forEach((f, i) => {
       playTone({ freq: f, type: "sine", duration: 0.09, volume: 0.11, delay: i * 0.045 });
@@ -98,46 +179,39 @@ const SFX = {
     playTone({ freq: 1568, type: "triangle", duration: 0.12, volume: 0.06, delay: 0.14 });
   },
 
-  // 投币口：清脆叮当
   coinInsert() {
     playTone({ freq: 523, type: "sine", duration: 0.08, volume: 0.13 });
     playTone({ freq: 784, type: "triangle", duration: 0.1, volume: 0.1, delay: 0.04 });
     playTone({ freq: 1046, type: "sine", duration: 0.07, volume: 0.08, delay: 0.08 });
   },
 
-  // 返回关卡：轻柔下行
   returnGame() {
     playTone({ freq: 440, type: "sine", duration: 0.18, volume: 0.1, slideTo: 330 });
     playTone({ freq: 330, type: "triangle", duration: 0.22, volume: 0.08, delay: 0.1, slideTo: 262 });
   },
 
-  // 回去搜集：鼓励式双音
   warningDismiss() {
     playTone({ freq: 587, type: "sine", duration: 0.12, volume: 0.11 });
     playTone({ freq: 698, type: "triangle", duration: 0.15, volume: 0.09, delay: 0.07 });
     playTone({ freq: 880, type: "sine", duration: 0.1, volume: 0.07, delay: 0.14 });
   },
 
-  // 进入神秘门
   doorEnter() {
     playTone({ freq: 330, type: "sine", duration: 0.3, volume: 0.12, slideTo: 660 });
     playTone({ freq: 440, type: "triangle", duration: 0.25, volume: 0.1, delay: 0.08, slideTo: 880 });
     playTone({ freq: 550, type: "sine", duration: 0.35, volume: 0.08, delay: 0.15, slideTo: 1100 });
   },
 
-  // 摇手柄：机械咔哒 + 下滑音
   lever() {
     playNoise({ duration: 0.1, volume: 0.18, filterFreq: 400 });
     playTone({ freq: 180, type: "sawtooth", duration: 0.2, volume: 0.12, slideTo: 90 });
     playTone({ freq: 320, type: "square", duration: 0.08, volume: 0.08, delay: 0.12 });
   },
 
-  // 转轮转动循环音（短促）
   reelTick() {
     playTone({ freq: 300 + Math.random() * 80, type: "square", duration: 0.03, volume: 0.04 });
   },
 
-  // JACKPOT：欢快上行和弦
   jackpot() {
     [523, 659, 784, 1046].forEach((f, i) => {
       playTone({ freq: f, type: "triangle", duration: 0.35, volume: 0.16, delay: i * 0.12 });

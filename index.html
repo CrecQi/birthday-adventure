@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=ZCOOL+QingKe+HuangYou&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=6">
+  <link rel="stylesheet" href="css/style.css?v=7">
 </head>
 <body>
   <!-- 开始界面 -->
@@ -28,7 +28,18 @@
 
     <div class="start-content">
       <p class="subtitle">今天是小胡宝的生日，她的生日礼物是什么呢？🎁<br>听说她要经历一次生日大冒险才可以找到答案哦！！✨<br>加油小宝！！💪</p>
-      <div class="btn-group">
+
+      <!-- 音乐加载进度条（加载完并播放后才显示开始按钮） -->
+      <div id="start-loading" class="start-loading">
+        <p class="load-label">正在准备冒险音乐…</p>
+        <div class="load-track">
+          <div class="load-fill" id="load-fill"></div>
+          <div class="load-coin" id="load-coin">🪙</div>
+        </div>
+        <p class="load-percent" id="load-percent">0%</p>
+      </div>
+
+      <div id="start-ready" class="btn-group hidden">
         <button id="btn-start" class="btn-primary">💜 开始冒险</button>
       </div>
       <p class="hint">💡 电脑：方向键移动 · 空格跳跃<br>手机：用屏幕下方按钮操作</p>
@@ -138,8 +149,8 @@
     </div>
   </div>
 
-  <script src="js/config.js?v=6"></script>
-  <script src="js/audio.js?v=6"></script>
-  <script src="js/game.js?v=6"></script>
+  <script src="js/config.js?v=7"></script>
+  <script src="js/audio.js?v=7"></script>
+  <script src="js/game.js?v=7"></script>
 </body>
 </html>

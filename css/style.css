@@ -149,6 +149,59 @@ body::after  { bottom: 12%; right: 8%; font-size: 1.3rem; }
   font-weight: 400;
 }
 
+/* ---- 音乐加载进度条 ---- */
+.start-loading {
+  margin: 0.6rem 0 1.2rem;
+}
+
+.load-label {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--purple-dark);
+  margin-bottom: 0.7rem;
+}
+
+.load-track {
+  position: relative;
+  height: 22px;
+  background: var(--lavender);
+  border: var(--border);
+  border-radius: 50px;
+  overflow: visible;
+  box-shadow: var(--shadow-sm);
+}
+
+.load-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--gold) 0%, #FFD966 100%);
+  border-radius: 50px;
+  transition: width 0.12s ease-out;
+}
+
+.load-coin {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translate(-50%, -50%);
+  font-size: 1.45rem;
+  line-height: 1;
+  transition: left 0.12s ease-out;
+  z-index: 2;
+  filter: drop-shadow(1px 2px 0 var(--black));
+}
+
+.load-percent {
+  margin-top: 0.55rem;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #666;
+}
+
+.hidden {
+  display: none !important;
+}
+
 @media (max-width: 600px) {
   .arch-title-wrap {
     height: min(40vh, 280px);
