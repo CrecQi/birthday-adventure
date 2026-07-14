@@ -107,6 +107,8 @@ function setupStartScreen() {
   const fill = document.getElementById("load-fill");
   const coin = document.getElementById("load-coin");
   const percent = document.getElementById("load-percent");
+  const loadLabel = loading.querySelector(".load-label");
+  const screen = document.getElementById("start-screen");
 
   function updateProgress(p) {
     const pct = Math.round(p * 100);
@@ -120,32 +122,50 @@ function setupStartScreen() {
     ready.classList.remove("hidden");
   }
 
-  function waitForBGMPlay() {
-    return preloadBGM(updateProgress).then((played) => {
+  function showTapToPlay() {
+    updateProgress(1);
+    loadLabel.textContent = "音乐已准备好 🎵";
+    percent.textContent = "轻触屏幕任意处播放音乐";
+    loading.classList.add("tap-waiting");
+  }
+
+  function unlockAndPlay() {
+    return ensureAudio().resume().then(() => tryStartBGM()).then((played) => {
       if (played) {
+        loading.classList.remove("tap-waiting");
         revealStartButton();
-        return;
+        return true;
       }
-      // 浏览器阻止自动播放时，等用户点击屏幕解锁
-      percent.textContent = "点击屏幕播放音乐";
-      return new Promise((resolve) => {
-        const unlock = () => {
-          ensureAudio().resume().then(() => startBGM()).then(() => {
-            revealStartButton();
-            resolve();
-          });
-        };
-        document.getElementById("start-screen").addEventListener("pointerdown", unlock, { once: true });
-      });
-    }).catch(() => {
-      percent.textContent = "音乐加载失败，点击屏幕重试";
-      document.getElementById("start-screen").addEventListener("pointerdown", () => {
-        setupStartScreen();
-      }, { once: true });
+      percent.textContent = "再点一次试试～";
+      return false;
     });
   }
 
-  waitForBGMPlay();
+  function bindTapUnlock() {
+    showTapToPlay();
+    const handler = (e) => {
+      e.preventDefault();
+      unlockAndPlay().then((ok) => {
+        if (ok) screen.removeEventListener("pointerdown", handler);
+      });
+    };
+    screen.addEventListener("pointerdown", handler);
+  }
+
+  preloadBGM(updateProgress)
+    .then((played) => {
+      if (played) {
+        updateProgress(1);
+        revealStartButton();
+      } else {
+        bindTapUnlock();
+      }
+    })
+    .catch(() => {
+      loadLabel.textContent = "音乐加载失败";
+      percent.textContent = "轻触屏幕重试";
+      screen.addEventListener("pointerdown", () => setupStartScreen(), { once: true });
+    });
 }
 
 function resizeCanvas() {

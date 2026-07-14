@@ -60,17 +60,29 @@ function playBGMLoop() {
   bgmPlaying = true;
 }
 
-function startBGM() {
+function tryStartBGM() {
   if (!bgmBuffer) return Promise.resolve(false);
   const ctx = ensureAudio();
-  return ctx.resume().then(() => {
-    if (ctx.state !== "running") return false;
-    playBGMLoop();
-    return true;
-  }).catch(() => false);
+
+  const resumeWithTimeout = Promise.race([
+    ctx.resume(),
+    new Promise((_, reject) => setTimeout(() => reject(new Error("resume timeout")), 1200)),
+  ]);
+
+  return resumeWithTimeout
+    .then(() => {
+      if (ctx.state !== "running") return false;
+      playBGMLoop();
+      return true;
+    })
+    .catch(() => false);
 }
 
-// 带进度的预加载：下载 → 解码 → 自动播放
+function startBGM() {
+  return tryStartBGM();
+}
+
+// 带进度的预加载：下载 → 解码 → 尝试播放
 function preloadBGM(onProgress) {
   return fetch(BGM_URL)
     .then((response) => {
@@ -89,12 +101,12 @@ function preloadBGM(onProgress) {
               merged.set(chunk, offset);
               offset += chunk.length;
             }
-            onProgress(0.95);
+            onProgress(0.92);
             return merged.buffer;
           }
           chunks.push(value);
           loaded += value.length;
-          if (total > 0) onProgress(Math.min(loaded / total, 0.9));
+          if (total > 0) onProgress(Math.min(loaded / total, 0.88));
           return pump();
         });
       }
@@ -106,8 +118,8 @@ function preloadBGM(onProgress) {
     })
     .then((buffer) => {
       bgmBuffer = trimBufferSilence(buffer);
-      onProgress(1);
-      return startBGM();
+      onProgress(0.98);
+      return tryStartBGM();
     });
 }
 

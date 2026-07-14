@@ -198,6 +198,21 @@ body::after  { bottom: 12%; right: 8%; font-size: 1.3rem; }
   color: #666;
 }
 
+.start-loading.tap-waiting {
+  cursor: pointer;
+  animation: tapPulse 1.2s ease-in-out infinite;
+}
+
+.start-loading.tap-waiting .load-percent {
+  color: var(--purple-dark);
+  font-size: 0.95rem;
+}
+
+@keyframes tapPulse {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.02); }
+}
+
 .hidden {
   display: none !important;
 }
