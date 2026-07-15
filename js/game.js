@@ -16,6 +16,7 @@ const JUMP_FORCE = -11.1; // 起跳/落地更慢，高度仍约 3.5 格
 let TILE = 40;
 const SHADOW = 4;
 const HEART_BURST_DELAY = 900; // 先看爱心迸溅，再弹回忆
+const MEMORY_REVEAL_TIMEOUT = 3500; // 超时后仍弹出回忆，避免一直等金币落地
 const PIPE_ESCAPE_FRAMES = 55; // 掉管道前的逃离窗口（约 0.9 秒）
 
 // 明亮香芋紫 + 奶油粉（高级感，不暗沉）
@@ -473,8 +474,12 @@ function tryRevealMemory() {
 
   const elapsed = performance.now() - pendingMemoryRevealStart;
   if (elapsed < HEART_BURST_DELAY) return;
-  if (!player.onGround || Math.abs(player.vy) > 0.5) return;
-  if (!pendingMemoryIsReopen && coins.some((c) => !c.settled)) return;
+
+  const timedOut = elapsed >= MEMORY_REVEAL_TIMEOUT;
+  if (!timedOut) {
+    if (!player.onGround || Math.abs(player.vy) > 0.5) return;
+    if (!pendingMemoryIsReopen && coins.some((c) => !c.settled)) return;
+  }
 
   const cfg = pendingMemory;
   pendingMemory = null;
@@ -694,12 +699,14 @@ function openBox(box) {
     pendingPipe = box.pipeRef;
   }
 
+  preloadMemoryImage(cfg);
   startMemoryReveal(cfg, false);
 }
 
 function reopenBox(box) {
   if (boxOpeningAnim || gamePaused) return;
   triggerBoxOpenPresentation(box);
+  preloadMemoryImage(box.config);
   startMemoryReveal(box.config, true);
 }
 
@@ -1064,12 +1071,17 @@ function preloadBoxMedia() {
     if (cfg.type === "video") {
       getMemoryVideo(cfg);
     } else if (cfg.type === "image" && !cfg.src.endsWith(".svg")) {
-      const img = new Image();
-      img.decoding = "async";
-      img.src = cfg.src;
-      mediaPreloadCache.set(cfg.src, img);
+      preloadMemoryImage(cfg);
     }
   });
+}
+
+function preloadMemoryImage(cfg) {
+  if (mediaPreloadCache.has(cfg.src)) return;
+  const img = new Image();
+  img.decoding = "async";
+  img.src = cfg.src;
+  mediaPreloadCache.set(cfg.src, img);
 }
 
 function showMemoryLoading(mediaEl, kind = "image") {
@@ -1125,22 +1137,27 @@ function mountMemoryVideo(cfg, mediaEl) {
   }
 }
 
-function createMemoryPicture(cfg) {
-  const picture = document.createElement("picture");
-  const baseUrl = cfg.src.split("?")[0];
-  const query = cfg.src.includes("?") ? "?" + cfg.src.split("?").slice(1).join("?") : "";
-  if (/\.jpe?g$/i.test(baseUrl)) {
-    const source = document.createElement("source");
-    source.type = "image/webp";
-    source.srcset = baseUrl.replace(/\.jpe?g$/i, ".webp") + query;
-    picture.appendChild(source);
-  }
+function showMemoryImage(cfg, mediaEl) {
+  showMemoryLoading(mediaEl);
+  setBgmDucked(false);
+
   const img = document.createElement("img");
   img.alt = cfg.title;
   img.decoding = "async";
+
+  const reveal = () => {
+    if (!img.naturalWidth) {
+      showPlaceholder(mediaEl, cfg);
+      return;
+    }
+    mediaEl.innerHTML = "";
+    mediaEl.appendChild(img);
+  };
+
+  img.onload = reveal;
+  img.onerror = () => showPlaceholder(mediaEl, cfg);
   img.src = cfg.src;
-  picture.appendChild(img);
-  return { picture, img };
+  if (img.complete) reveal();
 }
 
 function showMemory(cfg) {
@@ -1153,21 +1170,7 @@ function showMemory(cfg) {
   if (cfg.type === "video") {
     mountMemoryVideo(cfg, mediaEl);
   } else {
-    showMemoryLoading(mediaEl);
-    setBgmDucked(false);
-    const cached = mediaPreloadCache.get(cfg.src);
-    const { picture, img } = createMemoryPicture(cfg);
-    const reveal = () => {
-      if (!img.naturalWidth) return showPlaceholder(mediaEl, cfg);
-      mediaEl.innerHTML = "";
-      mediaEl.appendChild(picture);
-    };
-    img.onerror = () => showPlaceholder(mediaEl, cfg);
-    if (cached instanceof HTMLImageElement && cached.complete && cached.naturalWidth > 0) {
-      reveal();
-    } else {
-      img.onload = reveal;
-    }
+    showMemoryImage(cfg, mediaEl);
   }
   memoryModal.classList.remove("hidden");
 }
