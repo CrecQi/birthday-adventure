@@ -65,7 +65,7 @@ let pendingMemoryIsReopen = false;
 let pendingMemoryRevealStart = 0;
 let pendingPipe = null;
 let boxRehitCooldown = 0;
-const VIDEO_VOLUME = 0.05;
+const VIDEO_VOLUME = 0.85;
 
 const screens = {
   start: document.getElementById("start-screen"),
@@ -249,15 +249,19 @@ function layerPlatformY(layer, groundY) {
   return groundY - TILE * (2.5 + (layer - 2) * 2.5);
 }
 
+function addSideStepPlatform(bx, layer, groundY) {
+  platforms.push({
+    x: bx - TILE * 3.8,
+    y: layerPlatformY(layer, groundY),
+    w: TILE * 2.2,
+    h: TILE * 0.5,
+    type: "platform",
+  });
+}
+
 function addSteppingPlatforms(bx, targetLayer, groundY) {
   for (let L = 2; L < targetLayer; L++) {
-    platforms.push({
-      x: bx - TILE * 3.8,
-      y: layerPlatformY(L, groundY),
-      w: TILE * 2.2,
-      h: TILE * 0.5,
-      type: "platform",
-    });
+    addSideStepPlatform(bx, L, groundY);
   }
 }
 
@@ -272,6 +276,51 @@ function addLayerPlatform(bx, layer, groundY) {
     type: "platform",
   });
   return platY - TILE * 3.5;
+}
+
+function mergeAdjacentPlatforms() {
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let i = 0; i < platforms.length; i++) {
+      const a = platforms[i];
+      if (a.type !== "platform") continue;
+      for (let j = i + 1; j < platforms.length; j++) {
+        const b = platforms[j];
+        if (b.type !== "platform") continue;
+        if (Math.abs(a.y - b.y) > 2) continue;
+        const touchGap = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+        if (touchGap >= -TILE * 0.25) {
+          const left = Math.min(a.x, b.x);
+          const right = Math.max(a.x + a.w, b.x + b.w);
+          a.x = left;
+          a.w = right - left;
+          platforms.splice(j, 1);
+          changed = true;
+          break;
+        }
+      }
+      if (changed) break;
+    }
+  }
+}
+
+function resolvePlatformPipeOverlap() {
+  const pipeSolids = platforms.filter((p) => p.type === "pipe");
+  const gap = TILE * 1.2;
+  for (const pl of platforms) {
+    if (pl.type !== "platform") continue;
+    for (let pass = 0; pass < 8; pass++) {
+      let moved = false;
+      for (const pp of pipeSolids) {
+        if (pl.x + pl.w <= pp.x - gap || pl.x >= pp.x + pp.w + gap) continue;
+        pl.x = pp.x - pl.w - gap;
+        moved = true;
+      }
+      if (pl.x < TILE * 0.5) pl.x = TILE * 0.5;
+      if (!moved) break;
+    }
+  }
 }
 
 function buildLevel() {
@@ -303,17 +352,9 @@ function buildLevel() {
       const mouthY = groundY - TILE * 2.2;
       boxY = mouthY - TILE * 2.5;
 
-      // 第 2–4 层：侧面逐级放台面辅助上台，台面不压在管道上方
+      // 管道口箱子：仅保留一层侧面台面辅助上台（避免多层台面连成一片）
       if (cfg.layer >= 2) {
-        for (let L = 2; L <= cfg.layer; L++) {
-          platforms.push({
-            x: bx - TILE * 3.8,
-            y: layerPlatformY(L, groundY),
-            w: TILE * 2.2,
-            h: TILE * 0.5,
-            type: "platform",
-          });
-        }
+        addSideStepPlatform(bx, 2, groundY);
       }
 
       // 出口管道默认在右侧；若会撞到终点门则放到左侧
@@ -347,16 +388,8 @@ function buildLevel() {
     });
   });
 
-  // 保障：台面绝不出现在管道上方（水平重叠则左移错开）
-  const pipeSolids = platforms.filter((p) => p.type === "pipe");
-  for (const pl of platforms) {
-    if (pl.type !== "platform") continue;
-    for (const pp of pipeSolids) {
-      if (pl.x < pp.x + pp.w && pl.x + pl.w > pp.x) {
-        pl.x = pp.x - pl.w - TILE * 0.5;
-      }
-    }
-  }
+  resolvePlatformPipeOverlap();
+  mergeAdjacentPlatforms();
 
   const flagX = levelWidth - TILE * 3;
   // 终点神秘门（替代旗帜，需主动按跳跃进入）
@@ -1131,6 +1164,7 @@ function getMemoryVideo(cfg) {
     video = document.createElement("video");
     video.preload = "auto";
     video.playsInline = true;
+    video.muted = false;
     video.src = cfg.src;
     if (cfg.poster) {
       video.poster = cfg.poster;
@@ -1149,6 +1183,7 @@ function mountMemoryVideo(cfg, mediaEl) {
   video.controls = true;
   video.playsInline = true;
   video.preload = "auto";
+  video.muted = false;
   video.volume = VIDEO_VOLUME;
   if (cfg.poster) video.poster = cfg.poster;
   video.onerror = () => showPlaceholder(mediaEl, cfg);
@@ -1202,7 +1237,6 @@ function showMemoryImage(cfg, mediaEl) {
 
 function showMemory(cfg) {
   gamePaused = true;
-  document.getElementById("memory-title").textContent = cfg.title;
   document.getElementById("memory-caption").textContent = cfg.caption;
   const mediaEl = document.getElementById("memory-media");
   mediaEl.innerHTML = "";
