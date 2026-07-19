@@ -256,32 +256,48 @@ function addSideStepPlatform(bx, layer, groundY) {
     w: TILE * 2.2,
     h: TILE * 0.5,
     type: "platform",
+    role: "step",
+    boxX: bx,
   });
 }
 
-/** 每层一条贯通台面：左侧助跑 + 箱下正下方，方便走到高处箱子的下方 */
-function addLayerWalkway(bx, layer, groundY) {
+function addMainPlatform(bx, layer, groundY) {
   const platY = layerPlatformY(layer, groundY);
-  const mainW = TILE * 3;
-  const mainX = bx - (mainW - TILE) / 2;
-  const stepX = bx - TILE * 3.8;
-  const stepW = TILE * 2.2;
-  const left = Math.min(stepX, mainX);
-  const right = Math.max(stepX + stepW, mainX + mainW);
+  const platW = TILE * 3;
   platforms.push({
-    x: left,
+    x: bx - (platW - TILE) / 2,
     y: platY,
-    w: right - left,
+    w: platW,
     h: TILE * 0.5,
     type: "platform",
-    underBox: bx,
+    role: "main",
+    boxX: bx,
   });
+  return platY - TILE * 3.5;
 }
 
-function addSteppingPlatforms(bx, targetLayer, groundY) {
-  for (let L = 2; L <= targetLayer; L++) {
-    addLayerWalkway(bx, L, groundY);
+/** 高处箱子：低层左侧窄台阶逐级上升，顶层仅在箱正下方放主台面 */
+function addHighBoxPlatforms(bx, layer, groundY) {
+  for (let L = 2; L < layer; L++) {
+    addSideStepPlatform(bx, L, groundY);
   }
+  return addMainPlatform(bx, layer, groundY);
+}
+
+function platformCoversBox(pl, bx) {
+  return pl.x <= bx + TILE * 0.15 && pl.x + pl.w >= bx + TILE * 0.85;
+}
+
+function ensureMainPlatformCoversBox(pl, bx) {
+  if (pl.x > bx) pl.x = bx - TILE * 0.25;
+  if (pl.x + pl.w < bx + TILE) pl.w = bx + TILE - pl.x + TILE * 0.25;
+  pl.w = Math.max(pl.w, TILE * 2.5);
+}
+
+function canMergePlatforms(a, b) {
+  if (a.role === "main" && b.role === "step") return false;
+  if (a.role === "step" && b.role === "main") return false;
+  return true;
 }
 
 function mergeAdjacentPlatforms() {
@@ -294,21 +310,41 @@ function mergeAdjacentPlatforms() {
       for (let j = i + 1; j < platforms.length; j++) {
         const b = platforms[j];
         if (b.type !== "platform") continue;
+        if (!canMergePlatforms(a, b)) continue;
         if (Math.abs(a.y - b.y) > 2) continue;
         const overlap = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
         const gap = Math.max(a.x, b.x) - Math.min(a.x + a.w, b.x + b.w);
-        if (overlap >= -TILE * 1.0 || (gap >= 0 && gap <= TILE * 1.0)) {
+        if (overlap >= -TILE * 0.5 || (gap >= 0 && gap <= TILE * 0.75)) {
           const left = Math.min(a.x, b.x);
           const right = Math.max(a.x + a.w, b.x + b.w);
           a.x = left;
           a.w = right - left;
-          if (a.underBox == null && b.underBox != null) a.underBox = b.underBox;
+          if (a.boxX == null && b.boxX != null) a.boxX = b.boxX;
+          if (a.role === "step" || b.role === "step") a.role = "step";
           platforms.splice(j, 1);
           changed = true;
           break;
         }
       }
       if (changed) break;
+    }
+  }
+}
+
+function mergeVerticalStepStacks() {
+  const steps = platforms.filter((p) => p.type === "platform" && p.role === "step");
+  for (let i = 0; i < steps.length; i++) {
+    for (let j = i + 1; j < steps.length; j++) {
+      const a = steps[i];
+      const b = steps[j];
+      if (a.boxX !== b.boxX) continue;
+      if (Math.abs(a.x - b.x) > 2 || Math.abs(a.w - b.w) > 2) continue;
+      if (Math.abs(a.y - b.y) <= TILE * 0.6) {
+        const idx = platforms.indexOf(b);
+        if (idx >= 0) platforms.splice(idx, 1);
+        steps.splice(j, 1);
+        j--;
+      }
     }
   }
 }
@@ -323,9 +359,10 @@ function resolvePlatformPipeOverlap() {
     for (const pp of pipeSolids) {
       if (pl.x + pl.w <= pp.x - gap || pl.x >= pp.x + pp.w + gap) continue;
 
-      if (pl.underBox != null) {
+      if (pl.role === "main" && pl.boxX != null) {
+        const bx = pl.boxX;
         const pipeMid = pp.x + pp.w / 2;
-        if (pipeMid <= pl.underBox) {
+        if (pipeMid <= bx) {
           const trimEnd = pp.x + pp.w + gap;
           if (pl.x < trimEnd) {
             const delta = trimEnd - pl.x;
@@ -338,17 +375,56 @@ function resolvePlatformPipeOverlap() {
             pl.w = trimStart - pl.x;
           }
         }
-        if (pl.w < TILE * 1.2) {
-          pl.x = pl.underBox - TILE * 3.8;
-          pl.w = TILE * 2.2;
-          delete pl.underBox;
-        }
+        ensureMainPlatformCoversBox(pl, bx);
       } else {
         pl.x = pp.x - pl.w - gap;
       }
     }
 
     if (pl.x < TILE * 0.5) pl.x = TILE * 0.5;
+  }
+}
+
+function ensureAllBoxesReachable(boxes, groundY) {
+  for (const box of boxes) {
+    if (box.layer < 2) continue;
+
+    if (box.onPipe) {
+      if (box.layer >= 2) {
+        const hasStep = platforms.some((p) =>
+          p.type === "platform" && p.role === "step" && p.boxX === box.x
+        );
+        if (!hasStep) addSideStepPlatform(box.x, 2, groundY);
+      }
+      continue;
+    }
+
+    const needY = layerPlatformY(box.layer, groundY);
+    let mainPlat = platforms.find((p) =>
+      p.type === "platform" &&
+      p.role === "main" &&
+      p.boxX === box.x &&
+      Math.abs(p.y - needY) < 2
+    );
+
+    if (!mainPlat || !platformCoversBox(mainPlat, box.x)) {
+      if (mainPlat) {
+        ensureMainPlatformCoversBox(mainPlat, box.x);
+      } else {
+        addMainPlatform(box.x, box.layer, groundY);
+      }
+    }
+
+    for (let L = 2; L < box.layer; L++) {
+      const stepY = layerPlatformY(L, groundY);
+      const hasStep = platforms.some((p) =>
+        p.type === "platform" &&
+        p.role === "step" &&
+        p.boxX === box.x &&
+        Math.abs(p.y - stepY) < 2
+      );
+      if (!hasStep) addSideStepPlatform(box.x, L, groundY);
+    }
   }
 }
 
@@ -397,9 +473,7 @@ function buildLevel() {
       platforms.push({ x: px, y: mouthY, w: pipeW, h: groundY - mouthY, type: "pipe" });
       platforms.push({ x: exitX, y: exitMouthY, w: pipeW, h: groundY - exitMouthY, type: "pipe" });
     } else if (cfg.layer >= 2) {
-      // ---- 第 2–4 层悬空箱：每层一条贯通台面 ----
-      addSteppingPlatforms(bx, cfg.layer, groundY);
-      boxY = layerPlatformY(cfg.layer, groundY) - TILE * 3.5;
+      boxY = addHighBoxPlatforms(bx, cfg.layer, groundY);
     } else {
       // ---- 第一层悬空箱：地面起跳即可顶到 ----
       boxY = groundY - TILE * 3;
@@ -419,8 +493,9 @@ function buildLevel() {
 
   resolvePlatformPipeOverlap();
   mergeAdjacentPlatforms();
+  mergeVerticalStepStacks();
+  ensureAllBoxesReachable(boxes, groundY);
   resolvePlatformPipeOverlap();
-  mergeAdjacentPlatforms();
 
   const flagX = levelWidth - TILE * 3;
   // 终点神秘门（替代旗帜，需主动按跳跃进入）
