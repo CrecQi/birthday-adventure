@@ -75,7 +75,7 @@ const BOX_CONFIG = [
     id: 6,
     title: "温柔眼神",
     caption: "温柔的眼神迸溅出浓浓的爱意",
-    captionEmoji: "🥰",
+    captionEmoji: "💕",
     type: "image",
     src: "assets/media/box6.jpg?v=2",
     coins: 7,
