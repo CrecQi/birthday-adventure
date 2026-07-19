@@ -15,7 +15,8 @@ if [[ ${#missing[@]} -gt 0 ]]; then
 fi
 
 git checkout main
-git pull origin main
+git fetch origin main
+git pull --rebase origin main
 git add assets/media/box{1,2,5,6,12,13,15,16,17,18,20}.jpg
 git commit -m "上传回忆照片"
 git push origin main
