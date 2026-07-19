@@ -1306,7 +1306,7 @@ function render() {
     if (totalCoins >= MACHINE_JACKPOT_COINS && openedBoxes >= BOX_CONFIG.length) {
       drawHintText("按空格进入神秘门 🚪", player.x + player.w / 2, player.y - 18);
     } else {
-      drawHintText("🪙 小宝要搜集到所有金币才能来敲门儿哦！", player.x + player.w / 2, player.y - 18, {
+      drawHintText("🚪 小宝要搜集到所有金币才能来敲门儿哦！", player.x + player.w / 2, player.y - 18, {
         maxWidth: Math.min(gameWidth * 0.9, 340),
         fontSize: 13,
       });
@@ -1630,10 +1630,11 @@ function showMemory(cfg) {
   gamePaused = true;
   resetMediaOrientation();
   const captionEl = document.getElementById("memory-caption");
+  const emoji = cfg.captionEmoji ? `${cfg.captionEmoji} ` : "";
   if (cfg.captionHtml) {
-    captionEl.innerHTML = `💜 ${cfg.captionHtml}`;
+    captionEl.innerHTML = `${emoji}${cfg.captionHtml}`;
   } else {
-    captionEl.textContent = `💜 ${cfg.caption}`;
+    captionEl.textContent = `${emoji}${cfg.caption}`;
   }
   const mediaEl = document.getElementById("memory-media");
   mediaEl.innerHTML = "";
