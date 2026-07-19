@@ -55,6 +55,8 @@ let gamePaused = false;
 let levelComplete = false;
 let jumpHeld = false;
 let camera = { x: 0, y: 0 };
+let cameraHold = false; // 管道传送后锁住镜头，突出瞬移
+let cameraEasing = false; // 玩家再操作后平滑拉回默认构图
 let levelWidth = 0;
 let groundTopY = 0;
 let endDoor = null;
@@ -693,6 +695,8 @@ function buildLevel() {
 
   camera.x = 0;
   camera.y = 0;
+  cameraHold = false;
+  cameraEasing = false;
   totalCoins = 0;
   openedBoxes = 0;
   levelComplete = false;
@@ -751,7 +755,8 @@ function update() {
 
   if (player.inPipe) {
     updatePipeState();
-    updateCamera();
+    // 管道过程中锁住镜头，出口弹出时也不跟过去，保留瞬移感
+    if (!cameraHold) updateCamera();
     tryRevealMemory();
     return;
   }
@@ -759,6 +764,12 @@ function update() {
   const left = keys["ArrowLeft"] || keys["KeyA"] || touchInput.left;
   const right = keys["ArrowRight"] || keys["KeyD"] || touchInput.right;
   const jump = keys["Space"] || keys["ArrowUp"] || keys["KeyW"] || touchInput.jump;
+
+  // 管道弹出后：玩家再按方向/跳跃，镜头才开始平滑追回
+  if (cameraHold && (left || right || jump)) {
+    cameraHold = false;
+    cameraEasing = true;
+  }
 
   if (left) { player.vx = -MOVE_SPEED; player.facing = -1; }
   else if (right) { player.vx = MOVE_SPEED; player.facing = 1; }
@@ -871,12 +882,13 @@ function isNearDoor() {
 }
 
 function updateCamera() {
-  camera.x = player.x - gameWidth * 0.35;
-  if (camera.x < 0) camera.x = 0;
-  if (camera.x > levelWidth - gameWidth) camera.x = levelWidth - gameWidth;
+  if (cameraHold) return;
+
+  let targetX = player.x - gameWidth * 0.35;
+  if (targetX < 0) targetX = 0;
+  if (targetX > levelWidth - gameWidth) targetX = levelWidth - gameWidth;
 
   // 垂直跟随：登到第 3 层附近时画面上移，下来时回落
-  // camera.y < 0 表示视角上移（看到更高的平台）
   const screenY = player.y - camera.y;
   let desiredY = camera.y;
   const topBand = gameHeight * 0.24;
@@ -884,12 +896,24 @@ function updateCamera() {
   if (screenY < topBand) desiredY = player.y - topBand;
   else if (screenY > bottomBand) desiredY = player.y - bottomBand;
 
-  // 地面默认视角为 0；只允许上移（负值），平滑跟随
   desiredY = Math.min(0, desiredY);
   const minCamY = -TILE * 10;
   desiredY = Math.max(minCamY, desiredY);
-  camera.y += (desiredY - camera.y) * 0.14;
-  if (Math.abs(desiredY - camera.y) < 0.35) camera.y = desiredY;
+
+  if (cameraEasing) {
+    // 管道后恢复：平滑追到默认位置
+    camera.x += (targetX - camera.x) * 0.08;
+    camera.y += (desiredY - camera.y) * 0.08;
+    if (Math.abs(targetX - camera.x) < 1.2 && Math.abs(desiredY - camera.y) < 0.8) {
+      camera.x = targetX;
+      camera.y = desiredY;
+      cameraEasing = false;
+    }
+  } else {
+    camera.x = targetX;
+    camera.y += (desiredY - camera.y) * 0.14;
+    if (Math.abs(desiredY - camera.y) < 0.35) camera.y = desiredY;
+  }
 }
 
 function updateBoxBounce() {
@@ -946,6 +970,9 @@ function beginPipeFallIn(pipeRef) {
   player.onGround = false;
   player.inPipe = "falling_in";
   player.pipeRef = pipeRef;
+  // 进入管道起锁住镜头，出口弹出时也不跟过去
+  cameraHold = true;
+  cameraEasing = false;
 }
 
 function updatePipeState() {
