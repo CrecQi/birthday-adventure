@@ -77,6 +77,8 @@ let pendingMemoryIsReopen = false;
 let pendingMemoryRevealStart = 0;
 let pendingPipeMemory = null; // 管道传送结束后再弹回忆
 let boxRehitCooldown = 0;
+/** 进门后短暂忽略「返回游戏」，防止跳跃松手误触返回按钮 */
+let machineEntryUntil = 0;
 const VIDEO_VOLUME = 0.1;
 /** 视频音量增益节点缓存（Android Chrome 常忽略 video.volume） */
 const videoVolumeGraph = new WeakMap();
@@ -857,39 +859,25 @@ function update() {
   const doorReady = canEnterDoor();
   const nearDoor = doorReady && isNearDoor();
 
-  // 门前就绪时：优先尝试进门，并冻结横向移动，避免跳跃键+左键滑向左侧
-  if (nearDoor) {
-    player.vx *= FRICTION;
-    if (jump && !jumpHeld) {
-      if (tryEnterDoor()) {
-        jumpHeld = true;
-        return;
-      }
-      // 条件已满足但仍有阻挡（如未关闭的回忆弹窗）：不执行普通跳跃
-      jumpHeld = true;
-    } else if (!jump) {
-      jumpHeld = false;
-      if (left) { player.vx = -MOVE_SPEED; player.facing = -1; }
-      else if (right) { player.vx = MOVE_SPEED; player.facing = 1; }
-    }
-  } else {
-    if (left) { player.vx = -MOVE_SPEED; player.facing = -1; }
-    else if (right) { player.vx = MOVE_SPEED; player.facing = 1; }
-    else { player.vx *= FRICTION; }
+  if (left) { player.vx = -MOVE_SPEED; player.facing = -1; }
+  else if (right) { player.vx = MOVE_SPEED; player.facing = 1; }
+  else { player.vx *= FRICTION; }
 
-    if (jump && !jumpHeld) {
-      if (tryEnterDoor()) {
-        jumpHeld = true;
-        return;
-      }
-      if (player.onGround) {
-        player.vy = JUMP_FORCE;
-        player.onGround = false;
-        jumpHeld = true;
-      }
+  if (jump && !jumpHeld) {
+    if (tryEnterDoor()) {
+      jumpHeld = true;
+      return;
     }
-    if (!jump) jumpHeld = false;
+    // 已在门内就绪但仍有阻挡（如未关回忆）：不执行普通跳跃
+    if (!(nearDoor && doorReady) && player.onGround) {
+      player.vy = JUMP_FORCE;
+      player.onGround = false;
+      jumpHeld = true;
+    } else if (nearDoor && doorReady) {
+      jumpHeld = true;
+    }
   }
+  if (!jump) jumpHeld = false;
 
   player.vy += GRAVITY;
   player.x += player.vx;
@@ -973,13 +961,8 @@ function canEnterDoor() {
 }
 
 function getDoorEntryZone() {
-  // 比门框更宽，覆盖「站在门外正前方」的常见站位
-  return {
-    x: endDoor.x - TILE * 3.5,
-    y: endDoor.y - TILE * 0.25,
-    w: endDoor.w + TILE * 4.2,
-    h: endDoor.h + TILE * 1.25,
-  };
+  // 与门框一致：提示区 = 进门区，限制在门范围内
+  return endDoor;
 }
 
 function tryEnterDoor() {
@@ -1918,6 +1901,12 @@ function goToMachine() {
   gamePaused = true;
   insertedCoins = 0;
   slotSpinning = false;
+  touchInput.left = false;
+  touchInput.right = false;
+  touchInput.jump = false;
+  jumpHeld = false;
+  machineEntryUntil = performance.now() + 600;
+
   document.getElementById("machine-coin-display").textContent = "0";
   document.getElementById("machine-coin-total").textContent = MACHINE_JACKPOT_COINS;
   document.getElementById("remaining-coins").textContent = totalCoins;
@@ -1927,6 +1916,14 @@ function goToMachine() {
   coinWarningModal.classList.add("hidden");
   resetReels();
   showScreen("machine");
+
+  // 防止跳跃松手误触「返回继续冒险 / 投币口」（移动端 DOM 切换常见）
+  ["btn-return-game", "coin-slot", "btn-lever"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.pointerEvents = "none";
+    setTimeout(() => { el.style.pointerEvents = ""; }, 600);
+  });
 }
 
 function updateCoinSlotState() {
@@ -1977,20 +1974,49 @@ let coinHoldActive = false;
 
 function spawnMachineHeartBurst(anchorEl, scale = 1) {
   const rect = anchorEl.getBoundingClientRect();
-  const cx = rect.left + rect.width / 2;
-  const cy = rect.top + rect.height / 2;
   const colors = ["💜", "💖", "✨", "💗", "💕"];
   const count = Math.max(8, Math.floor(18 * scale));
+  const perimeter = 2 * (rect.width + rect.height);
+
   for (let i = 0; i < count; i++) {
+    let t = Math.random() * perimeter;
+    let x;
+    let y;
+    let nx;
+    let ny;
+
+    if (t < rect.width) {
+      x = rect.left + t;
+      y = rect.top;
+      nx = 0;
+      ny = -1;
+    } else if (t < rect.width + rect.height) {
+      x = rect.right;
+      y = rect.top + (t - rect.width);
+      nx = 1;
+      ny = 0;
+    } else if (t < 2 * rect.width + rect.height) {
+      x = rect.right - (t - rect.width - rect.height);
+      y = rect.bottom;
+      nx = 0;
+      ny = 1;
+    } else {
+      x = rect.left;
+      y = rect.bottom - (t - 2 * rect.width - rect.height);
+      nx = -1;
+      ny = 0;
+    }
+
+    const angle = Math.atan2(ny, nx) + (Math.random() - 0.5) * 1.0;
+    const dist = (36 + Math.random() * 64) * Math.max(scale, 0.75);
+
     const el = document.createElement("span");
     el.className = "machine-heart";
     el.textContent = colors[Math.floor(Math.random() * colors.length)];
-    const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
-    const dist = 40 + Math.random() * 70;
-    el.style.left = `${cx}px`;
-    el.style.top = `${cy}px`;
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
     el.style.setProperty("--dx", `${Math.cos(angle) * dist}px`);
-    el.style.setProperty("--dy", `${Math.sin(angle) * dist - 30}px`);
+    el.style.setProperty("--dy", `${Math.sin(angle) * dist - 24}px`);
     document.body.appendChild(el);
     setTimeout(() => el.remove(), 900);
   }
@@ -2086,6 +2112,7 @@ function pullLever() {
 }
 
 function returnToGame() {
+  if (performance.now() < machineEntryUntil) return;
   ensureAudio();
   SFX.returnGame();
   totalCoins += insertedCoins;
