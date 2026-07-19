@@ -11,6 +11,8 @@ let bgmBuffer = null;
 let bgmGain = null;
 let bgmSource = null;
 let bgmPlaying = false;
+/** 用户通过测试按钮关闭 BGM 后，禁止自动恢复 */
+let bgmUserMuted = false;
 
 function setBgmDucked(duck) {
   if (!bgmGain) return;
@@ -113,6 +115,24 @@ function tryStartBGM() {
 
 function startBGM() {
   return tryStartBGM();
+}
+
+/** 停止背景音乐（测试用 / 视频播放时可调用） */
+function stopBGM() {
+  if (bgmSource) {
+    bgmSource.onended = null;
+    try { bgmSource.stop(); } catch (_) { /* already stopped */ }
+    try { bgmSource.disconnect(); } catch (_) { /* ignore */ }
+    bgmSource = null;
+  }
+  bgmPlaying = false;
+  if (bgmGain) {
+    try { bgmGain.gain.value = 0; } catch (_) { /* ignore */ }
+  }
+}
+
+function isBgmPlaying() {
+  return bgmPlaying;
 }
 
 // 带进度的预加载：下载 → 解码 → 尝试播放

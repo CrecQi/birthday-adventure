@@ -315,6 +315,7 @@ body::after  { bottom: 12%; right: 8%; font-size: 1.3rem; }
 
 /* ---- 游戏 HUD ---- */
 #game-screen {
+  position: relative;
   justify-content: flex-start;
   background: var(--lavender);
   height: 100%;
@@ -343,6 +344,51 @@ body::after  { bottom: 12%; right: 8%; font-size: 1.3rem; }
   min-height: 0;
   display: block;
   background: var(--lavender);
+}
+
+/* ---- 测试用左下角按钮 ---- */
+.debug-controls {
+  position: absolute;
+  left: max(0.5rem, env(safe-area-inset-left, 0px));
+  bottom: max(4.8rem, calc(env(safe-area-inset-bottom, 0px) + 4.2rem));
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  pointer-events: none;
+}
+
+.debug-btn {
+  pointer-events: auto;
+  border: 2px solid var(--black);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--black);
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.35rem 0.55rem;
+  border-radius: 8px;
+  box-shadow: 2px 2px 0 var(--black);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  white-space: nowrap;
+}
+
+.debug-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--black);
+}
+
+.debug-btn.is-muted {
+  background: #FEE2E2;
+  color: #991B1B;
+}
+
+@media (min-width: 768px) {
+  .debug-controls {
+    bottom: max(0.7rem, env(safe-area-inset-bottom, 0px));
+  }
 }
 
 /* ---- 触控 ---- */
