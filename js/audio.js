@@ -30,7 +30,7 @@ function setBgmDucked(duck) {
 
 /** 确保 BGM 在播：恢复 AudioContext，必要时重新开播 */
 function ensureBgmPlaying() {
-  if (!bgmBuffer) return;
+  if (!bgmBuffer || bgmUserMuted) return;
   const ctx = ensureAudio();
   const kick = () => {
     setBgmDucked(false);
@@ -96,7 +96,7 @@ function playBGMLoop() {
 }
 
 function tryStartBGM() {
-  if (!bgmBuffer) return Promise.resolve(false);
+  if (!bgmBuffer || bgmUserMuted) return Promise.resolve(false);
   const ctx = ensureAudio();
 
   const resumeWithTimeout = Promise.race([
@@ -114,11 +114,16 @@ function tryStartBGM() {
 }
 
 function startBGM() {
+  bgmUserMuted = false;
+  if (bgmGain) {
+    try { bgmGain.gain.value = BGM_VOLUME; } catch (_) { /* ignore */ }
+  }
   return tryStartBGM();
 }
 
-/** 停止背景音乐（测试用 / 视频播放时可调用） */
+/** 停止背景音乐（测试用） */
 function stopBGM() {
+  bgmUserMuted = true;
   if (bgmSource) {
     bgmSource.onended = null;
     try { bgmSource.stop(); } catch (_) { /* already stopped */ }
@@ -132,7 +137,7 @@ function stopBGM() {
 }
 
 function isBgmPlaying() {
-  return bgmPlaying;
+  return bgmPlaying && !bgmUserMuted;
 }
 
 // 带进度的预加载：下载 → 解码 → 尝试播放
