@@ -10,10 +10,13 @@
 //                      从附近另一根管道掉出来
 // ============================================================
 
-const GRAVITY = 0.44;
+const GRAVITY = 0.41;
 const FRICTION = 0.85;
-const MOVE_SPEED = 5;
-const JUMP_FORCE = -11.1; // 起跳/落地更慢，高度仍约 3.5 格
+const MOVE_SPEED = 4.3;
+const JUMP_FORCE = -10.5; // 起跳/落地更慢，高度仍约 3.5 格
+const PHYSICS_FPS = 60;
+const FIXED_DT = 1000 / PHYSICS_FPS;
+const MAX_FRAME_DELTA = 100;
 let TILE = 40;
 const SHADOW = 4;
 const HEART_BURST_DELAY = 900; // 先看爱心迸溅，再弹回忆
@@ -57,6 +60,8 @@ let levelWidth = 0;
 let groundTopY = 0;
 let endDoor = null;
 let animationId = null;
+let lastFrameTime = 0;
+let physicsAccumulator = 0;
 
 // 开箱 / 管道流程状态
 let boxOpeningAnim = false;
@@ -560,13 +565,27 @@ function startGame() {
   buildLevel();
   preloadBoxMedia();
   gamePaused = false;
+  lastFrameTime = 0;
+  physicsAccumulator = 0;
   if (animationId) cancelAnimationFrame(animationId);
-  gameLoop();
+  animationId = requestAnimationFrame(gameLoop);
 }
 
-function gameLoop() {
+function gameLoop(timestamp = performance.now()) {
+  if (!lastFrameTime) lastFrameTime = timestamp;
+  const frameDelta = Math.min(timestamp - lastFrameTime, MAX_FRAME_DELTA);
+  lastFrameTime = timestamp;
+
   try {
-    if (!gamePaused) update();
+    if (!gamePaused) {
+      physicsAccumulator += frameDelta;
+      while (physicsAccumulator >= FIXED_DT) {
+        update();
+        physicsAccumulator -= FIXED_DT;
+      }
+    } else {
+      physicsAccumulator = 0;
+    }
     render();
   } catch (err) {
     console.error("游戏循环错误:", err);
