@@ -78,6 +78,8 @@ let pendingMemoryRevealStart = 0;
 let pendingPipeMemory = null; // 管道传送结束后再弹回忆
 let boxRehitCooldown = 0;
 const VIDEO_VOLUME = 0.1;
+/** 视频音量增益节点缓存（Android Chrome 常忽略 video.volume） */
+const videoVolumeGraph = new WeakMap();
 
 const screens = {
   start: document.getElementById("start-screen"),
@@ -124,12 +126,74 @@ function init() {
     returnToGame();
   });
   document.getElementById("btn-replay").addEventListener("click", replay);
+  setupDebugControls();
   setupButtonSounds();
   setupControls();
   setupStartScreen();
 }
 
-const UI_SOUND_SKIP = new Set(["coin-slot", "btn-lever", "btn-warning-back", "btn-return-game"]);
+const UI_SOUND_SKIP = new Set([
+  "coin-slot", "btn-lever", "btn-warning-back", "btn-return-game",
+  "btn-debug-clear", "btn-debug-mute-bgm",
+]);
+
+function setupDebugControls() {
+  const clearBtn = document.getElementById("btn-debug-clear");
+  const muteBtn = document.getElementById("btn-debug-mute-bgm");
+  if (clearBtn) clearBtn.addEventListener("click", debugOneClickClear);
+  if (muteBtn) {
+    muteBtn.addEventListener("click", () => {
+      ensureAudio();
+      if (isBgmPlaying()) {
+        stopBGM();
+        muteBtn.textContent = "开启BGM";
+        muteBtn.classList.add("is-muted");
+      } else {
+        startBGM();
+        muteBtn.textContent = "关闭BGM";
+        muteBtn.classList.remove("is-muted");
+      }
+    });
+  }
+}
+
+/** 测试：开完所有箱、集齐金币，传送到终点门外 */
+function debugOneClickClear() {
+  if (!player || !endDoor) return;
+  // 关掉回忆弹窗，避免卡住
+  if (memoryModal && !memoryModal.classList.contains("hidden")) {
+    closeMemory();
+  }
+  pendingMemory = null;
+  pendingMemoryIsReopen = false;
+  pendingPipeMemory = null;
+  boxOpeningAnim = false;
+  player.inPipe = null;
+  player.pipeRef = null;
+  cameraHold = false;
+  cameraEasing = false;
+  levelComplete = false;
+  gamePaused = false;
+
+  coins = [];
+  for (const box of boxes) box.opened = true;
+  openedBoxes = BOX_CONFIG.length;
+  totalCoins = MACHINE_JACKPOT_COINS;
+
+  // 站在门外正前方（略偏左，方便看见门）
+  player.x = endDoor.x - player.w - TILE * 0.15;
+  player.y = groundTopY - player.h;
+  player.vx = 0;
+  player.vy = 0;
+  player.onGround = true;
+  player.facing = 1;
+  jumpHeld = false;
+
+  camera.x = Math.max(0, Math.min(player.x - gameWidth * 0.35, levelWidth - gameWidth));
+  camera.y = 0;
+  updateHUD();
+  SFX.doorEnter();
+}
 
 function setupButtonSounds() {
   document.addEventListener("click", (e) => {
@@ -792,10 +856,11 @@ function update() {
   else if (right) { player.vx = MOVE_SPEED; player.facing = 1; }
   else { player.vx *= FRICTION; }
 
-  if (jump && !jumpHeld && player.onGround) {
+  // 门前优先进门：不要求贴碰撞盒，也不要求落地（提示区即可）
+  if (jump && !jumpHeld) {
     if (tryEnterDoor()) {
       jumpHeld = true;
-    } else {
+    } else if (player.onGround) {
       player.vy = JUMP_FORCE;
       player.onGround = false;
       jumpHeld = true;
@@ -876,17 +941,16 @@ function tryRevealMemory() {
   showMemory(cfg);
 }
 
-// 主动进入神秘门（需集齐全部金币）
+// 主动进入神秘门（需集齐全部金币；与提示同用宽松靠近区）
 function tryEnterDoor() {
   if (levelComplete || pendingMemory || player.inPipe) return false;
   if (openedBoxes < BOX_CONFIG.length) return false;
   if (totalCoins < MACHINE_JACKPOT_COINS) return false;
-  if (!endDoor) return false;
-
-  const atDoor = collides(player, endDoor);
-  if (!atDoor) return false;
+  if (!isNearDoor()) return false;
 
   levelComplete = true;
+  player.vx = 0;
+  player.vy = 0;
   SFX.doorEnter();
   goToMachine();
   return true;
@@ -894,7 +958,13 @@ function tryEnterDoor() {
 
 function isNearDoor() {
   if (!endDoor || levelComplete) return false;
-  const zone = { x: endDoor.x - TILE, y: endDoor.y - TILE * 0.5, w: endDoor.w + TILE * 2, h: endDoor.h + TILE };
+  // 门外较宽的触发区：站在门前即可进，不必精确叠在门框碰撞盒上
+  const zone = {
+    x: endDoor.x - TILE * 1.4,
+    y: endDoor.y - TILE * 0.5,
+    w: endDoor.w + TILE * 2.8,
+    h: endDoor.h + TILE,
+  };
   return collides(player, zone);
 }
 
@@ -1622,7 +1692,10 @@ function getMemoryVideo(cfg) {
     video = document.createElement("video");
     video.preload = "auto";
     video.playsInline = true;
+    video.setAttribute("playsinline", "");
+    video.setAttribute("webkit-playsinline", "");
     video.muted = false;
+    video.volume = VIDEO_VOLUME;
     video.src = cfg.src;
     if (cfg.poster) {
       video.poster = cfg.poster;
@@ -1636,15 +1709,64 @@ function getMemoryVideo(cfg) {
   return video;
 }
 
+/** 强制视频音量≈10%：优先 Web Audio Gain（Android Chrome 常忽略 video.volume） */
+function enforceVideoVolume(video) {
+  if (!(video instanceof HTMLVideoElement)) return;
+
+  let graph = videoVolumeGraph.get(video);
+  if (!graph) {
+    try {
+      const ctx = ensureAudio();
+      const source = ctx.createMediaElementSource(video);
+      const gain = ctx.createGain();
+      gain.gain.value = VIDEO_VOLUME;
+      source.connect(gain);
+      gain.connect(ctx.destination);
+      graph = { source, gain, ctx };
+      videoVolumeGraph.set(video, graph);
+    } catch (_) {
+      // 不支持 Web Audio 路由时，退回元素 volume
+      try {
+        if (Math.abs(video.volume - VIDEO_VOLUME) > 0.01) video.volume = VIDEO_VOLUME;
+      } catch (__) { /* ignore */ }
+      return;
+    }
+  }
+
+  try {
+    const ctx = graph.ctx || ensureAudio();
+    if (ctx.state === "suspended") ctx.resume().catch(() => {});
+    if (Math.abs(graph.gain.gain.value - VIDEO_VOLUME) > 0.001) {
+      graph.gain.gain.value = VIDEO_VOLUME;
+    }
+    // 走 GainNode 时元素 volume 固定为 1，由 gain 衰减到 10%
+    if (video.volume !== 1) video.volume = 1;
+  } catch (_) { /* ignore */ }
+}
+
 function mountMemoryVideo(cfg, mediaEl) {
   const video = getMemoryVideo(cfg);
   video.controls = true;
   video.playsInline = true;
+  video.setAttribute("playsinline", "");
+  video.setAttribute("webkit-playsinline", "");
   video.preload = "auto";
   video.muted = false;
-  video.volume = VIDEO_VOLUME;
   if (cfg.poster) video.poster = cfg.poster;
   video.onerror = () => showPlaceholder(mediaEl, cfg);
+
+  enforceVideoVolume(video);
+
+  const reapplyVol = () => enforceVideoVolume(video);
+  ["loadedmetadata", "canplay", "play", "playing"].forEach((ev) => {
+    video.addEventListener(ev, reapplyVol);
+  });
+  // 启动后短时钳制，防止浏览器把音量拉满
+  const onTimeUpdate = () => reapplyVol();
+  video.addEventListener("timeupdate", onTimeUpdate);
+  video.addEventListener("playing", () => {
+    setTimeout(() => video.removeEventListener("timeupdate", onTimeUpdate), 3000);
+  }, { once: true });
 
   mediaEl.innerHTML = "";
   mediaEl.appendChild(video);
@@ -1656,7 +1778,8 @@ function mountMemoryVideo(cfg, mediaEl) {
       applyMediaOrientation(mediaEl, video.videoWidth, video.videoHeight);
     }
     setBgmDucked(true);
-    video.play().catch(() => {});
+    enforceVideoVolume(video);
+    video.play().then(() => enforceVideoVolume(video)).catch(() => {});
   };
 
   video.addEventListener("ended", () => ensureBgmPlaying(), { once: true });

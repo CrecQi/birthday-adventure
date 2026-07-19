@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=ZCOOL+QingKe+HuangYou&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=21">
+  <link rel="stylesheet" href="css/style.css?v=22">
 </head>
 <body>
   <!-- 开始界面 -->
@@ -74,7 +74,7 @@
       </div>
       <p class="hint">💡 电脑：方向键移动 · 空格跳跃<br>手机：用屏幕下方按钮操作<br>📲 分享 → <strong>添加到主屏幕</strong>，像 App 一样玩</p>
     </div>
-    <div class="version-badge" aria-hidden="true">v21</div>
+    <div class="version-badge" aria-hidden="true">v22</div>
   </div>
 
   <!-- 游戏界面 -->
@@ -84,6 +84,11 @@
       <span>📦 箱子：<strong id="box-count">0</strong> / <span id="box-total">9</span></span>
     </div>
     <canvas id="game-canvas"></canvas>
+    <!-- 测试用：左下角快捷按钮 -->
+    <div class="debug-controls" aria-label="测试按钮">
+      <button type="button" id="btn-debug-clear" class="debug-btn">一键通关</button>
+      <button type="button" id="btn-debug-mute-bgm" class="debug-btn">关闭BGM</button>
+    </div>
     <div class="touch-controls">
       <button id="btn-left" class="touch-btn">◀</button>
       <button id="btn-jump" class="touch-btn jump">▲</button>
@@ -192,7 +197,7 @@
 
   <script src="js/pwa.js"></script>
   <script src="js/config.js?v=31"></script>
-  <script src="js/audio.js?v=18"></script>
-  <script src="js/game.js?v=44"></script>
+  <script src="js/audio.js?v=19"></script>
+  <script src="js/game.js?v=45"></script>
 </body>
 </html>
