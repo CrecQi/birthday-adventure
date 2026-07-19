@@ -65,7 +65,7 @@ let pendingMemoryIsReopen = false;
 let pendingMemoryRevealStart = 0;
 let pendingPipe = null;
 let boxRehitCooldown = 0;
-const VIDEO_VOLUME = 0.85;
+const VIDEO_VOLUME = 0.2;
 
 const screens = {
   start: document.getElementById("start-screen"),
@@ -259,23 +259,29 @@ function addSideStepPlatform(bx, layer, groundY) {
   });
 }
 
-function addSteppingPlatforms(bx, targetLayer, groundY) {
-  for (let L = 2; L < targetLayer; L++) {
-    addSideStepPlatform(bx, L, groundY);
-  }
-}
-
-function addLayerPlatform(bx, layer, groundY) {
+/** 每层一条贯通台面：左侧助跑 + 箱下正下方，方便走到高处箱子的下方 */
+function addLayerWalkway(bx, layer, groundY) {
   const platY = layerPlatformY(layer, groundY);
-  const platW = TILE * 3;
+  const mainW = TILE * 3;
+  const mainX = bx - (mainW - TILE) / 2;
+  const stepX = bx - TILE * 3.8;
+  const stepW = TILE * 2.2;
+  const left = Math.min(stepX, mainX);
+  const right = Math.max(stepX + stepW, mainX + mainW);
   platforms.push({
-    x: bx - (platW - TILE) / 2,
+    x: left,
     y: platY,
-    w: platW,
+    w: right - left,
     h: TILE * 0.5,
     type: "platform",
+    underBox: bx,
   });
-  return platY - TILE * 3.5;
+}
+
+function addSteppingPlatforms(bx, targetLayer, groundY) {
+  for (let L = 2; L <= targetLayer; L++) {
+    addLayerWalkway(bx, L, groundY);
+  }
 }
 
 function mergeAdjacentPlatforms() {
@@ -289,12 +295,14 @@ function mergeAdjacentPlatforms() {
         const b = platforms[j];
         if (b.type !== "platform") continue;
         if (Math.abs(a.y - b.y) > 2) continue;
-        const touchGap = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
-        if (touchGap >= -TILE * 0.25) {
+        const overlap = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+        const gap = Math.max(a.x, b.x) - Math.min(a.x + a.w, b.x + b.w);
+        if (overlap >= -TILE * 1.0 || (gap >= 0 && gap <= TILE * 1.0)) {
           const left = Math.min(a.x, b.x);
           const right = Math.max(a.x + a.w, b.x + b.w);
           a.x = left;
           a.w = right - left;
+          if (a.underBox == null && b.underBox != null) a.underBox = b.underBox;
           platforms.splice(j, 1);
           changed = true;
           break;
@@ -308,18 +316,39 @@ function mergeAdjacentPlatforms() {
 function resolvePlatformPipeOverlap() {
   const pipeSolids = platforms.filter((p) => p.type === "pipe");
   const gap = TILE * 1.2;
+
   for (const pl of platforms) {
     if (pl.type !== "platform") continue;
-    for (let pass = 0; pass < 8; pass++) {
-      let moved = false;
-      for (const pp of pipeSolids) {
-        if (pl.x + pl.w <= pp.x - gap || pl.x >= pp.x + pp.w + gap) continue;
+
+    for (const pp of pipeSolids) {
+      if (pl.x + pl.w <= pp.x - gap || pl.x >= pp.x + pp.w + gap) continue;
+
+      if (pl.underBox != null) {
+        const pipeMid = pp.x + pp.w / 2;
+        if (pipeMid <= pl.underBox) {
+          const trimEnd = pp.x + pp.w + gap;
+          if (pl.x < trimEnd) {
+            const delta = trimEnd - pl.x;
+            pl.x += delta;
+            pl.w -= delta;
+          }
+        } else {
+          const trimStart = pp.x - gap;
+          if (pl.x + pl.w > trimStart) {
+            pl.w = trimStart - pl.x;
+          }
+        }
+        if (pl.w < TILE * 1.2) {
+          pl.x = pl.underBox - TILE * 3.8;
+          pl.w = TILE * 2.2;
+          delete pl.underBox;
+        }
+      } else {
         pl.x = pp.x - pl.w - gap;
-        moved = true;
       }
-      if (pl.x < TILE * 0.5) pl.x = TILE * 0.5;
-      if (!moved) break;
     }
+
+    if (pl.x < TILE * 0.5) pl.x = TILE * 0.5;
   }
 }
 
@@ -368,9 +397,9 @@ function buildLevel() {
       platforms.push({ x: px, y: mouthY, w: pipeW, h: groundY - mouthY, type: "pipe" });
       platforms.push({ x: exitX, y: exitMouthY, w: pipeW, h: groundY - exitMouthY, type: "pipe" });
     } else if (cfg.layer >= 2) {
-      // ---- 第 2–4 层悬空箱：台面在箱子正下方，箱子悬空 2.5 格 ----
+      // ---- 第 2–4 层悬空箱：每层一条贯通台面 ----
       addSteppingPlatforms(bx, cfg.layer, groundY);
-      boxY = addLayerPlatform(bx, cfg.layer, groundY);
+      boxY = layerPlatformY(cfg.layer, groundY) - TILE * 3.5;
     } else {
       // ---- 第一层悬空箱：地面起跳即可顶到 ----
       boxY = groundY - TILE * 3;
@@ -388,6 +417,8 @@ function buildLevel() {
     });
   });
 
+  resolvePlatformPipeOverlap();
+  mergeAdjacentPlatforms();
   resolvePlatformPipeOverlap();
   mergeAdjacentPlatforms();
 
@@ -1152,6 +1183,20 @@ function preloadMemoryImage(cfg) {
   mediaPreloadCache.set(cfg.src, img);
 }
 
+function applyMediaOrientation(mediaEl, width, height) {
+  const modalContent = mediaEl.closest(".modal-content");
+  const portrait = height > width;
+  mediaEl.classList.toggle("is-portrait", portrait);
+  modalContent?.classList.toggle("is-portrait", portrait);
+}
+
+function resetMediaOrientation() {
+  const mediaEl = document.getElementById("memory-media");
+  const modalContent = mediaEl?.closest(".modal-content");
+  mediaEl?.classList.remove("is-portrait");
+  modalContent?.classList.remove("is-portrait");
+}
+
 function showMemoryLoading(mediaEl, kind = "image") {
   const icon = kind === "video" ? "🎬" : "📷";
   const text = kind === "video" ? "视频加载中…" : "照片加载中…";
@@ -1194,6 +1239,9 @@ function mountMemoryVideo(cfg, mediaEl) {
 
   const startPlayback = () => {
     mediaEl.classList.remove("is-loading");
+    if (video.videoWidth && video.videoHeight) {
+      applyMediaOrientation(mediaEl, video.videoWidth, video.videoHeight);
+    }
     setBgmDucked(true);
     video.play().catch(() => {});
   };
@@ -1227,6 +1275,7 @@ function showMemoryImage(cfg, mediaEl) {
     const display = img.cloneNode(false);
     display.alt = cfg.title;
     mediaEl.appendChild(display);
+    applyMediaOrientation(mediaEl, img.naturalWidth, img.naturalHeight);
   };
 
   img.onload = reveal;
@@ -1237,7 +1286,13 @@ function showMemoryImage(cfg, mediaEl) {
 
 function showMemory(cfg) {
   gamePaused = true;
-  document.getElementById("memory-caption").textContent = cfg.caption;
+  resetMediaOrientation();
+  const captionEl = document.getElementById("memory-caption");
+  if (cfg.captionHtml) {
+    captionEl.innerHTML = cfg.captionHtml;
+  } else {
+    captionEl.textContent = cfg.caption;
+  }
   const mediaEl = document.getElementById("memory-media");
   mediaEl.innerHTML = "";
 
@@ -1260,6 +1315,7 @@ function showPlaceholder(el, cfg) {
 
 function closeMemory() {
   memoryModal.classList.add("hidden");
+  resetMediaOrientation();
   const video = memoryModal.querySelector("video");
   if (video) {
     video.pause();

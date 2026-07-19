@@ -405,6 +405,10 @@ body::after  { bottom: 12%; right: 8%; font-size: 1.3rem; }
   .memory-media video {
     max-height: 36dvh;
   }
+  .memory-media.is-portrait img,
+  .memory-media.is-portrait video {
+    max-height: 52dvh;
+  }
 }
 
 @media (min-width: 381px) and (max-width: 430px) {
@@ -509,8 +513,32 @@ body::after  { bottom: 12%; right: 8%; font-size: 1.3rem; }
 
 .memory-media img,
 .memory-media video {
-  object-fit: cover;
+  object-fit: contain;
   border-radius: 8px;
+}
+
+.memory-media.is-portrait {
+  width: min(88vw, 320px);
+  max-width: 320px;
+  min-height: 280px;
+}
+
+.memory-media.is-portrait img,
+.memory-media.is-portrait video {
+  width: auto;
+  max-width: 100%;
+  max-height: min(58dvh, 520px);
+  height: auto;
+}
+
+.modal-content.is-portrait {
+  max-width: min(92vw, 360px);
+  padding-top: 1.4rem;
+}
+
+.memory-caption del {
+  text-decoration: line-through;
+  opacity: 0.72;
 }
 
 .memory-loading {
