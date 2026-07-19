@@ -1161,10 +1161,16 @@ function drawFlower(cx, cy, size) {
 
 function drawPipe(pipe) {
   const rimH = TILE * 0.55;
-  // 管身
-  drawDoodleRect(pipe.x + 3, pipe.mouthY + rimH * 0.5, pipe.w - 6, pipe.h - rimH * 0.5, C.pipe, { radius: 3, shadow: false });
+  // 管身（加宽实心，避免下沉时角色从两侧露出来）
+  drawDoodleRect(pipe.x, pipe.mouthY + rimH * 0.35, pipe.w, pipe.h - rimH * 0.35, C.pipe, { radius: 3, shadow: false });
+  // 再铺一层不带描边的实心，盖住管底/缝隙
+  ctx.fillStyle = C.pipe;
+  ctx.fillRect(pipe.x + 2, pipe.mouthY + rimH * 0.5, pipe.w - 4, pipe.h - rimH * 0.5 + 2);
   // 管口（略宽）
   drawDoodleRect(pipe.x - 4, pipe.mouthY, pipe.w + 8, rimH, C.pipeDark, { radius: 6, shadow: false });
+  // 管口内侧阴影，强化“吞进去”的感觉
+  ctx.fillStyle = "rgba(61, 53, 88, 0.22)";
+  ctx.fillRect(pipe.x + 2, pipe.mouthY + rimH * 0.55, pipe.w - 4, rimH * 0.35);
 }
 
 function drawCoinHeart(cx, cy) {
@@ -1300,7 +1306,7 @@ function render() {
     if (totalCoins >= MACHINE_JACKPOT_COINS && openedBoxes >= BOX_CONFIG.length) {
       drawHintText("按空格进入神秘门 🚪", player.x + player.w / 2, player.y - 18);
     } else {
-      drawHintText("小宝要搜集到所有金币才能来敲门儿哦！", player.x + player.w / 2, player.y - 18, {
+      drawHintText("🪙 小宝要搜集到所有金币才能来敲门儿哦！", player.x + player.w / 2, player.y - 18, {
         maxWidth: Math.min(gameWidth * 0.9, 340),
         fontSize: 13,
       });
@@ -1313,9 +1319,21 @@ function render() {
 }
 
 function drawPlayer() {
+  // 已完全进入管道：不绘制，避免在管底露馅
+  if (player.inPipe === "sinking" || player.inPipe === "waiting") return;
+
   const { x, y, w, h, facing } = player;
   const bounce = player.onGround && !player.inPipe ? Math.abs(Math.sin(player.animFrame * 0.3)) * 2 : 0;
+
   ctx.save();
+  // 正在掉入管道：裁剪到管口以上，只露出尚未吞进的部分
+  if (player.inPipe === "falling_in" && player.pipeRef) {
+    const mouth = player.pipeRef.mouthY + TILE * 0.12;
+    ctx.beginPath();
+    ctx.rect(x - TILE, -TILE * 20, w + TILE * 2, mouth + TILE * 20);
+    ctx.clip();
+  }
+
   if (facing < 0) {
     ctx.translate(x + w, 0);
     ctx.scale(-1, 1);
@@ -1613,9 +1631,9 @@ function showMemory(cfg) {
   resetMediaOrientation();
   const captionEl = document.getElementById("memory-caption");
   if (cfg.captionHtml) {
-    captionEl.innerHTML = cfg.captionHtml;
+    captionEl.innerHTML = `💜 ${cfg.captionHtml}`;
   } else {
-    captionEl.textContent = cfg.caption;
+    captionEl.textContent = `💜 ${cfg.caption}`;
   }
   const mediaEl = document.getElementById("memory-media");
   mediaEl.innerHTML = "";
