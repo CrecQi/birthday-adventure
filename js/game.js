@@ -1176,9 +1176,12 @@ function showMemoryImage(cfg, mediaEl) {
   showMemoryLoading(mediaEl);
   setBgmDucked(false);
 
-  const img = document.createElement("img");
-  img.alt = cfg.title;
-  img.decoding = "async";
+  let img = mediaPreloadCache.get(cfg.src);
+  if (!(img instanceof HTMLImageElement)) {
+    img = new Image();
+    img.decoding = "async";
+    mediaPreloadCache.set(cfg.src, img);
+  }
 
   const reveal = () => {
     if (!img.naturalWidth) {
@@ -1186,7 +1189,9 @@ function showMemoryImage(cfg, mediaEl) {
       return;
     }
     mediaEl.innerHTML = "";
-    mediaEl.appendChild(img);
+    const display = img.cloneNode(false);
+    display.alt = cfg.title;
+    mediaEl.appendChild(display);
   };
 
   img.onload = reveal;
