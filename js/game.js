@@ -49,6 +49,12 @@ let gameWidth, gameHeight;
 let player, platforms, boxes, coins, heartBubbles, pipes;
 let keys = {};
 let touchInput = { left: false, right: false, jump: false };
+
+// 摇头小宝：站立第1帧，跳起第2帧
+const playerHeadStand = new Image();
+playerHeadStand.src = "assets/media/player-head-1.png";
+const playerHeadJump = new Image();
+playerHeadJump.src = "assets/media/player-head-2.png";
 let totalCoins = 0;
 let openedBoxes = 0;
 let gamePaused = false;
@@ -1372,30 +1378,62 @@ function drawPlayer() {
 }
 
 function drawMarioSprite(x, y, w, h) {
-  ctx.fillStyle = C.black;
-  ctx.fillRect(x + SHADOW, y + SHADOW, w, h);
-  ctx.fillStyle = C.purple;
-  ctx.fillRect(x, y, w, h * 0.3);
-  ctx.strokeStyle = C.black;
-  ctx.lineWidth = 2.5;
-  ctx.strokeRect(x, y, w, h * 0.3);
-  ctx.fillStyle = "#FFE0BD";
-  ctx.fillRect(x + w * 0.1, y + h * 0.25, w * 0.8, h * 0.25);
-  ctx.strokeRect(x + w * 0.1, y + h * 0.25, w * 0.8, h * 0.25);
-  ctx.fillStyle = C.purple;
-  ctx.fillRect(x + w * 0.05, y + h * 0.5, w * 0.9, h * 0.3);
-  ctx.strokeRect(x + w * 0.05, y + h * 0.5, w * 0.9, h * 0.3);
-  ctx.fillStyle = C.white;
-  ctx.fillRect(x + w * 0.05, y + h * 0.65, w * 0.9, h * 0.35);
-  ctx.strokeRect(x + w * 0.05, y + h * 0.65, w * 0.9, h * 0.35);
+  const inAir = !player.onGround;
+  const headImg = inAir ? playerHeadJump : playerHeadStand;
+
+  // 身体（简笔）：头像贴纸下方的小身子
+  const bodyH = h * 0.48;
+  const bodyY = y + h - bodyH;
+  const bodyW = w * 0.78;
+  const bodyX = x + (w - bodyW) / 2;
+
+  // 阴影
+  ctx.fillStyle = "rgba(61, 53, 88, 0.18)";
+  ctx.beginPath();
+  ctx.ellipse(x + w / 2 + 1, y + h + 2, w * 0.42, h * 0.08, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 腿
   ctx.fillStyle = C.purpleDark;
-  ctx.font = `bold ${w * 0.18}px sans-serif`;
+  ctx.strokeStyle = C.black;
+  ctx.lineWidth = 2;
+  const legW = bodyW * 0.28;
+  const legH = bodyH * 0.42;
+  const legY = bodyY + bodyH - legH;
+  roundRect(ctx, bodyX + bodyW * 0.12, legY, legW, legH, 3);
+  ctx.fill(); ctx.stroke();
+  roundRect(ctx, bodyX + bodyW * 0.6, legY, legW, legH, 3);
+  ctx.fill(); ctx.stroke();
+
+  // 上衣
+  ctx.fillStyle = C.purple;
+  roundRect(ctx, bodyX, bodyY, bodyW, bodyH * 0.72, 6);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = C.white;
+  ctx.font = `900 ${bodyW * 0.28}px sans-serif`;
   ctx.textAlign = "center";
-  ctx.fillText("♥", x + w * 0.3, y + h * 0.76);
-  ctx.fillText("♥", x + w * 0.7, y + h * 0.76);
-  ctx.fillStyle = C.black;
-  ctx.fillRect(x, y + h * 0.88, w * 0.45, h * 0.12);
-  ctx.fillRect(x + w * 0.55, y + h * 0.88, w * 0.45, h * 0.12);
+  ctx.textBaseline = "middle";
+  ctx.fillText("♥", bodyX + bodyW / 2, bodyY + bodyH * 0.32);
+
+  // 头：bubble-head 两帧（站立 / 空中）
+  const headW = w * 1.7;
+  const headH = headW * (179 / 160);
+  const headX = x + (w - headW) / 2;
+  const headY = bodyY - headH * 0.78;
+
+  if (headImg.complete && headImg.naturalWidth > 0) {
+    ctx.drawImage(headImg, headX, headY, headW, headH);
+  } else {
+    // 图片未就绪时的占位头
+    ctx.fillStyle = "#FFE0BD";
+    ctx.beginPath();
+    ctx.arc(x + w / 2, y + h * 0.28, w * 0.38, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = C.black;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+  }
 }
 
 function drawHintText(text, x, y, opts = {}) {
