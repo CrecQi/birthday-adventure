@@ -69,7 +69,7 @@ let pendingMemoryIsReopen = false;
 let pendingMemoryRevealStart = 0;
 let pendingPipeMemory = null; // 管道传送结束后再弹回忆
 let boxRehitCooldown = 0;
-const VIDEO_VOLUME = 0.2;
+const VIDEO_VOLUME = 0.1;
 
 const screens = {
   start: document.getElementById("start-screen"),
@@ -283,17 +283,19 @@ function addClimbStaircase(bx, topLayer, groundY) {
   return addMainPlatform(bx, topLayer, groundY);
 }
 
-/** 去掉 #15 与 #16 之间最接近地面的那块平面 */
+/** 去掉 #15 与 #16 之间最接近地面的那块平面（仅贴地低层，不动 L2 及以上） */
 function removeLowestPlatformBetweenBoxes(boxA, boxB, groundY) {
   if (!boxA || !boxB) return;
   const left = Math.min(boxA.x, boxB.x) - TILE;
   const right = Math.max(boxA.x + boxA.w, boxB.x + boxB.w) + TILE;
+  const belowL2 = layerPlatformY(2, groundY) + 4;
   let lowest = null;
   let lowestIdx = -1;
   for (let i = 0; i < platforms.length; i++) {
     const p = platforms[i];
     if (p.type !== "platform") continue;
     if (p.y >= groundY - 4) continue; // 地面
+    if (p.y <= belowL2) continue; // 保留 L2 及以上
     const mid = p.x + p.w / 2;
     if (mid < left || mid > right) continue;
     if (!lowest || p.y > lowest.y) {
@@ -302,6 +304,30 @@ function removeLowestPlatformBetweenBoxes(boxA, boxB, groundY) {
     }
   }
   if (lowestIdx >= 0) platforms.splice(lowestIdx, 1);
+}
+
+/** 在箱子正下方放一块平面，高度与一层悬空箱（#17）距地面高度一致（3 格） */
+function addUnderBoxPlatformAtBox17Height(bx, groundY) {
+  const platY = groundY - TILE * 3; // 与 layer 1 箱子箱底同高
+  const platW = TILE * 3;
+  // 先清掉该箱同高度、正下方的旧平面，避免重复
+  for (let i = platforms.length - 1; i >= 0; i--) {
+    const p = platforms[i];
+    if (p.type !== "platform" || p.boxX !== bx) continue;
+    if (Math.abs(p.y - platY) < 2 && p.role !== "main") {
+      platforms.splice(i, 1);
+    }
+  }
+  platforms.push({
+    x: bx - (platW - TILE) / 2,
+    y: platY,
+    w: platW,
+    h: TILE * 0.5,
+    type: "platform",
+    role: "step",
+    boxX: bx,
+    underBox: true,
+  });
 }
 
 /** 去掉某箱子正下方的其它平面（不含地面） */
@@ -614,6 +640,7 @@ function buildLevel() {
   const box15 = boxes.find((b) => b.config?.id === 15);
   const box16 = boxes.find((b) => b.config?.id === 16);
   removeLowestPlatformBetweenBoxes(box15, box16, groundY);
+  if (box16) addUnderBoxPlatformAtBox17Height(box16.x, groundY);
 
   const flagX = levelWidth - TILE * 3;
   // 终点神秘门（替代旗帜，需主动按跳跃进入）
