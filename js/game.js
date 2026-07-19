@@ -6,7 +6,7 @@
 //   layer 2–4        ：侧面台面逐级起跳，走到悬空箱下方再顶开（箱子不接触台面，
 //                      每层台面比上一层高 2.5 格，箱底距台面顶 2.5 格）
 //   onPipe = true    ：悬在管道口正上方，只能站在管道口上起跳顶开；
-//                      顶开回忆关闭后自动掉进管道，从附近另一根管道掉出来
+//                      顶开后人物被弹进下方管道，从附近另一根管道跳出，再显示回忆
 // ============================================================
 
 const GRAVITY = 0.41;
@@ -67,7 +67,7 @@ let boxOpeningAnim = false;
 let pendingMemory = null;
 let pendingMemoryIsReopen = false;
 let pendingMemoryRevealStart = 0;
-let pendingPipe = null;
+let pendingPipeMemory = null; // 管道传送结束后再弹回忆
 let boxRehitCooldown = 0;
 const VIDEO_VOLUME = 0.2;
 
@@ -256,9 +256,8 @@ function layerPlatformY(layer, groundY) {
   return groundY - TILE * (2.5 + (layer - 2) * 2.5);
 }
 
-/** #16 等高层箱：左低右高阶梯，越低越长，避免同宽竖直叠放爬不上去 */
+/** #16 等高层箱：紧凑错落阶梯（靠箱子一侧，避免伸到邻箱正下方） */
 function addClimbStaircase(bx, topLayer, groundY) {
-  // 清掉该箱已有台阶与主台面，避免重复
   for (let i = platforms.length - 1; i >= 0; i--) {
     const p = platforms[i];
     if (p.type === "platform" && p.boxX === bx && (p.role === "step" || p.role === "main")) {
@@ -266,11 +265,11 @@ function addClimbStaircase(bx, topLayer, groundY) {
     }
   }
 
-  // 低层入口：最长、最靠左（约 1.15 格高）
+  // 低层入口：最长，但仍贴近本箱左侧
   platforms.push({
-    x: bx - TILE * 6.4,
+    x: bx - TILE * 4.6,
     y: groundY - TILE * 1.15,
-    w: TILE * 3.6,
+    w: TILE * 2.8,
     h: TILE * 0.5,
     type: "platform",
     role: "step",
@@ -278,14 +277,13 @@ function addClimbStaircase(bx, topLayer, groundY) {
     lowEntry: true,
   });
 
-  // L2 … L(top-1)：逐级变短、向右错开，形成可跳的楼梯
   for (let L = 2; L < topLayer; L++) {
     const idx = L - 2;
-    const w = TILE * (2.8 - idx * 0.55);
+    const w = TILE * (2.4 - idx * 0.45);
     platforms.push({
-      x: bx - TILE * (5.1 - idx * 1.15),
+      x: bx - TILE * (3.9 - idx * 0.95),
       y: layerPlatformY(L, groundY),
-      w: Math.max(w, TILE * 1.6),
+      w: Math.max(w, TILE * 1.5),
       h: TILE * 0.5,
       type: "platform",
       role: "step",
@@ -294,6 +292,22 @@ function addClimbStaircase(bx, topLayer, groundY) {
   }
 
   return addMainPlatform(bx, topLayer, groundY);
+}
+
+/** 去掉某箱子正下方的其它平面（不含地面） */
+function clearPlatformsDirectlyBelow(box, groundY) {
+  const left = box.x - TILE * 0.35;
+  const right = box.x + box.w + TILE * 0.35;
+  for (let i = platforms.length - 1; i >= 0; i--) {
+    const p = platforms[i];
+    if (p.type !== "platform") continue;
+    if (p.boxX === box.x) continue; // 本箱自己的台面保留
+    const mid = p.x + p.w / 2;
+    if (mid < left || mid > right) continue;
+    if (p.y <= box.y + box.h - 4) continue; // 只删箱子下方
+    if (p.y >= groundY - 4) continue; // 不删地面
+    platforms.splice(i, 1);
+  }
 }
 
 function addSideStepPlatform(bx, layer, groundY, opts = {}) {
@@ -522,7 +536,8 @@ function buildLevel() {
   const spacing = Math.floor(levelWidth / (BOX_CONFIG.length + 1));
 
   BOX_CONFIG.forEach((cfg, i) => {
-    const bx = spacing * (i + 1);
+    let bx = spacing * (i + 1);
+    if (cfg.shiftX) bx += cfg.shiftX * TILE;
     let boxY;
     let pipeRef = null;
 
@@ -548,6 +563,8 @@ function buildLevel() {
       pipes.push({ x: exitX, w: pipeW, mouthY: exitMouthY, h: groundY - exitMouthY });
       platforms.push({ x: px, y: mouthY, w: pipeW, h: groundY - mouthY, type: "pipe" });
       platforms.push({ x: exitX, y: exitMouthY, w: pipeW, h: groundY - exitMouthY, type: "pipe" });
+    } else if (cfg.floatHeight != null) {
+      boxY = groundY - cfg.floatHeight * TILE;
     } else if (cfg.layer >= 2) {
       if (cfg.extraLowStep) {
         boxY = addClimbStaircase(bx, cfg.layer, groundY);
@@ -578,6 +595,12 @@ function buildLevel() {
   ensureAllBoxesReachable(boxes, groundY);
   resolvePlatformPipeOverlap();
 
+  for (const box of boxes) {
+    if (box.config?.clearPlatformBelow) {
+      clearPlatformsDirectlyBelow(box, groundY);
+    }
+  }
+
   const flagX = levelWidth - TILE * 3;
   // 终点神秘门（替代旗帜，需主动按跳跃进入）
   endDoor = {
@@ -596,7 +619,7 @@ function buildLevel() {
     onGround: false,
     facing: 1,
     animFrame: 0,
-    inPipe: null,       // null | sinking | waiting
+    inPipe: null,       // null | falling_in | sinking | waiting
     pipeRef: null,
     pipeEscapeTimer: 0,
     pipeWait: 0,
@@ -612,7 +635,7 @@ function buildLevel() {
   pendingMemory = null;
   pendingMemoryIsReopen = false;
   pendingMemoryRevealStart = 0;
-  pendingPipe = null;
+  pendingPipeMemory = null;
   boxRehitCooldown = 0;
   updateHUD();
 }
@@ -741,6 +764,7 @@ function update() {
 // 爱心迸溅 → 小人落地 → 金币落地 → 再弹回忆
 function tryRevealMemory() {
   if (!pendingMemory) return;
+  if (player.inPipe) return; // 管道传送中不弹窗
 
   const elapsed = performance.now() - pendingMemoryRevealStart;
   if (elapsed < HEART_BURST_DELAY) return;
@@ -848,9 +872,39 @@ function updateCoins() {
   }
 }
 
-// ---- 管道流程（顶开回忆后自动传送，无逃离）----
+// ---- 管道流程：顶开后弹进管道 → 出口弹出 → 再显示回忆 ----
+function beginPipeFallIn(pipeRef) {
+  const targetX = pipeRef.x + (pipeRef.w - player.w) / 2;
+  player.vx = (targetX - player.x) * 0.18;
+  player.vy = Math.max(player.vy, 5);
+  player.onGround = false;
+  player.inPipe = "falling_in";
+  player.pipeRef = pipeRef;
+}
+
 function updatePipeState() {
   const pipe = player.pipeRef;
+  if (!pipe) {
+    player.inPipe = null;
+    return;
+  }
+
+  if (player.inPipe === "falling_in") {
+    const targetX = pipe.x + (pipe.w - player.w) / 2;
+    player.vx += (targetX - player.x) * 0.12;
+    player.vx *= 0.9;
+    player.vy += GRAVITY;
+    player.x += player.vx;
+    player.y += player.vy;
+    if (player.y + player.h >= pipe.mouthY - 2) {
+      player.x = targetX;
+      player.y = pipe.mouthY - player.h;
+      player.vx = 0;
+      player.vy = 0;
+      player.inPipe = "sinking";
+    }
+    return;
+  }
 
   if (player.inPipe === "sinking") {
     player.y += 4;
@@ -874,6 +928,10 @@ function updatePipeState() {
       spawnHeartBurst(player.x + player.w / 2, player.y, 0.4);
       player.inPipe = null;
       player.pipeRef = null;
+      if (pendingPipeMemory) {
+        startMemoryReveal(pendingPipeMemory, false);
+        pendingPipeMemory = null;
+      }
     }
   }
 }
@@ -959,13 +1017,17 @@ function openBox(box) {
 
   triggerBoxOpenPresentation(box);
   updateHUD();
+  preloadMemoryImage(cfg);
 
   if (box.onPipe && box.pipeRef) {
-    pendingPipe = box.pipeRef;
+    // 顶开后立刻弹进管道；回忆等出口弹出后再显示
+    boxOpeningAnim = true;
+    pendingPipeMemory = cfg;
+    pendingMemory = null;
+    beginPipeFallIn(box.pipeRef);
+  } else {
+    startMemoryReveal(cfg, false);
   }
-
-  preloadMemoryImage(cfg);
-  startMemoryReveal(cfg, false);
 }
 
 function reopenBox(box) {
@@ -1407,6 +1469,11 @@ function mountMemoryVideo(cfg, mediaEl) {
     video.play().catch(() => {});
   };
 
+  video.addEventListener("ended", () => ensureBgmPlaying(), { once: true });
+  video.addEventListener("pause", () => {
+    if (video.ended || memoryModal.classList.contains("hidden")) ensureBgmPlaying();
+  });
+
   if (video.readyState >= 2) {
     startPlayback();
   } else {
@@ -1418,7 +1485,7 @@ function mountMemoryVideo(cfg, mediaEl) {
 
 function showMemoryImage(cfg, mediaEl) {
   showMemoryLoading(mediaEl);
-  setBgmDucked(false);
+  ensureBgmPlaying();
 
   let img = mediaPreloadCache.get(cfg.src);
   if (!(img instanceof HTMLImageElement)) {
@@ -1482,19 +1549,8 @@ function closeMemory() {
     video.pause();
     video.remove();
   }
-  setBgmDucked(false);
+  ensureBgmPlaying();
   gamePaused = false;
-
-  // 管道口箱子：关闭回忆后自动掉进管道，传送到出口
-  if (pendingPipe) {
-    player.x = pendingPipe.x + (pendingPipe.w - player.w) / 2;
-    player.y = pendingPipe.mouthY - player.h;
-    player.vx = 0;
-    player.vy = 0;
-    player.inPipe = "sinking";
-    player.pipeRef = pendingPipe;
-    pendingPipe = null;
-  }
 }
 
 // ---- 老虎机 ----

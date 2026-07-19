@@ -14,7 +14,31 @@ let bgmPlaying = false;
 
 function setBgmDucked(duck) {
   if (!bgmGain) return;
-  bgmGain.gain.value = duck ? BGM_VOLUME * 0.55 : BGM_VOLUME;
+  const ctx = audioCtx;
+  const now = ctx ? ctx.currentTime : 0;
+  const target = duck ? BGM_VOLUME * 0.55 : BGM_VOLUME;
+  if (ctx && bgmGain.gain.cancelScheduledValues) {
+    bgmGain.gain.cancelScheduledValues(now);
+    bgmGain.gain.setValueAtTime(bgmGain.gain.value, now);
+    bgmGain.gain.linearRampToValueAtTime(target, now + 0.08);
+  } else {
+    bgmGain.gain.value = target;
+  }
+}
+
+/** 确保 BGM 在播：恢复 AudioContext，必要时重新开播 */
+function ensureBgmPlaying() {
+  if (!bgmBuffer) return;
+  const ctx = ensureAudio();
+  const kick = () => {
+    setBgmDucked(false);
+    if (!bgmPlaying) playBGMLoop();
+  };
+  if (ctx.state === "suspended") {
+    ctx.resume().then(kick).catch(kick);
+  } else {
+    kick();
+  }
 }
 
 function ensureAudio() {
@@ -53,14 +77,18 @@ function playBGMLoop() {
   }
 
   if (bgmSource) {
+    bgmSource.onended = null;
     try { bgmSource.stop(); } catch (_) { /* already stopped */ }
     bgmSource.disconnect();
+    bgmSource = null;
+    bgmPlaying = false;
   }
 
   bgmSource = ctx.createBufferSource();
   bgmSource.buffer = bgmBuffer;
   bgmSource.loop = true;
   bgmSource.connect(bgmGain);
+  bgmSource.onended = () => { bgmPlaying = false; };
   bgmSource.start(0);
   bgmPlaying = true;
 }
