@@ -532,8 +532,41 @@ body::after  { bottom: 12%; right: 8%; font-size: 1.3rem; }
 }
 
 .modal-content.is-portrait {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   max-width: min(92vw, 360px);
-  padding-top: 1.4rem;
+  padding-top: 0.65rem;
+}
+
+.modal-content.is-portrait .btn-close {
+  position: static;
+  align-self: flex-end;
+  margin: 0 0.15rem 0.55rem 0;
+  flex-shrink: 0;
+}
+
+.modal-content.is-portrait .memory-media {
+  margin-top: 0;
+  width: min(88vw, 320px);
+  max-width: 320px;
+  min-height: 0;
+}
+
+.modal-content.is-portrait .memory-media img,
+.modal-content.is-portrait .memory-media video {
+  width: auto;
+  max-width: 100%;
+  max-height: min(50dvh, 460px);
+  height: auto;
+}
+
+#memory-modal:not(.hidden) .modal-content {
+  cursor: pointer;
+}
+
+#memory-modal:not(.hidden) .memory-media video {
+  cursor: default;
 }
 
 .memory-caption del {
