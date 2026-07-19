@@ -177,6 +177,7 @@ const BOX_CONFIG = [
     coins: 9,
     layer: 4,
     onPipe: false,
+    extraLowStep: true,
   },
   {
     id: 17,

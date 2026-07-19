@@ -98,8 +98,11 @@ function init() {
   }
 
   document.getElementById("btn-start").addEventListener("click", startGame);
-  document.getElementById("btn-close-memory").addEventListener("click", closeMemory);
-  document.getElementById("btn-continue").addEventListener("click", closeMemory);
+  memoryModal.addEventListener("click", (e) => {
+    if (memoryModal.classList.contains("hidden")) return;
+    if (e.target.closest("video")) return;
+    closeMemory();
+  });
   document.getElementById("coin-slot").addEventListener("click", insertCoin);
   document.getElementById("btn-lever").addEventListener("click", pullLever);
   document.getElementById("btn-return-game").addEventListener("click", returnToGame);
@@ -247,6 +250,18 @@ function showScreen(name) {
 // ---- 关卡构建 ----
 function layerPlatformY(layer, groundY) {
   return groundY - TILE * (2.5 + (layer - 2) * 2.5);
+}
+
+function addLowStepPlatform(bx, groundY) {
+  platforms.push({
+    x: bx - TILE * 3.8,
+    y: groundY - TILE * 1.65,
+    w: TILE * 2.8,
+    h: TILE * 0.5,
+    type: "platform",
+    role: "step",
+    boxX: bx,
+  });
 }
 
 function addSideStepPlatform(bx, layer, groundY) {
@@ -473,6 +488,7 @@ function buildLevel() {
       platforms.push({ x: px, y: mouthY, w: pipeW, h: groundY - mouthY, type: "pipe" });
       platforms.push({ x: exitX, y: exitMouthY, w: pipeW, h: groundY - exitMouthY, type: "pipe" });
     } else if (cfg.layer >= 2) {
+      if (cfg.extraLowStep) addLowStepPlatform(bx, groundY);
       boxY = addHighBoxPlatforms(bx, cfg.layer, groundY);
     } else {
       // ---- 第一层悬空箱：地面起跳即可顶到 ----
