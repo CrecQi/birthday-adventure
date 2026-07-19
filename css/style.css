@@ -126,6 +126,23 @@ body::after  { bottom: 12%; right: 8%; font-size: 1.3rem; }
   50%       { transform: scale(1.05); }
 }
 
+/* 封面：标题拱门下方的摇头小宝 */
+.cover-bubble-head {
+  display: block;
+  margin: min(-14vh, -90px) auto 0.4rem;
+  width: min(34vw, 190px);
+  height: auto;
+  position: relative;
+  z-index: 1;
+  animation: headBob 2.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes headBob {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50%       { transform: translateY(-8px) rotate(2deg); }
+}
+
 #start-screen .start-content {
   background: var(--white);
   border: var(--border);
@@ -246,6 +263,10 @@ body::after  { bottom: 12%; right: 8%; font-size: 1.3rem; }
     font-size: 78px;
     stroke-width: 5px;
     letter-spacing: 4px;
+  }
+  .cover-bubble-head {
+    width: min(38vw, 150px);
+    margin-top: min(-11vh, -70px);
   }
 }
 
@@ -375,6 +396,10 @@ body::after  { bottom: 12%; right: 8%; font-size: 1.3rem; }
   }
   .arch-title-text {
     font-size: 68px;
+  }
+  .cover-bubble-head {
+    width: min(32vw, 120px);
+    margin-top: min(-9vh, -55px);
   }
   #start-screen .start-content {
     padding: 1rem 1.1rem 1.2rem;
