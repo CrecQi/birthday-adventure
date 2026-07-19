@@ -371,6 +371,8 @@ body::after  { bottom: 12%; right: 8%; font-size: 1.3rem; }
   cursor: pointer;
   box-shadow: var(--shadow-sm);
   -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+  user-select: none;
 }
 
 .touch-btn.jump {
@@ -647,9 +649,75 @@ body::after  { bottom: 12%; right: 8%; font-size: 1.3rem; }
 
 /* ---- 老虎机 ---- */
 #machine-screen {
-  background: var(--bg);
+  background: linear-gradient(165deg, #FFF7FC 0%, #F3E8FF 42%, #EDE4FF 100%);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  position: relative;
+}
+
+/* 稀疏平铺的 bubble-head：9 个，低透明，不抢戏 */
+.machine-bg-heads {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  place-items: center;
+  opacity: 0.16;
+  overflow: hidden;
+}
+
+.machine-bg-heads img {
+  width: min(16vw, 88px);
+  height: auto;
+  filter: saturate(0.95);
+}
+
+.machine-bg-heads img:nth-child(odd) {
+  transform: rotate(-8deg);
+}
+
+.machine-bg-heads img:nth-child(even) {
+  transform: rotate(7deg) scale(0.92);
+}
+
+.machine-bg-heads img:nth-child(5) {
+  transform: rotate(0deg) scale(1.05);
+  opacity: 0.9;
+}
+
+#machine-screen .machine-content {
+  position: relative;
+  z-index: 1;
+}
+
+/* 投币爱心迸溅（DOM） */
+.machine-heart {
+  position: fixed;
+  z-index: 200;
+  font-size: 1.25rem;
+  pointer-events: none;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  animation: machineHeartFly 0.85s ease-out forwards;
+}
+
+@keyframes machineHeartFly {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(
+        calc(-50% + var(--dx, 0px)),
+        calc(-50% + var(--dy, -40px))
+      )
+      scale(1.15);
+  }
 }
 
 .machine-content {

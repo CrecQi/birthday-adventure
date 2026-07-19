@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=ZCOOL+QingKe+HuangYou&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=19">
+  <link rel="stylesheet" href="css/style.css?v=21">
 </head>
 <body>
   <!-- 开始界面 -->
@@ -74,7 +74,7 @@
       </div>
       <p class="hint">💡 电脑：方向键移动 · 空格跳跃<br>手机：用屏幕下方按钮操作<br>📲 分享 → <strong>添加到主屏幕</strong>，像 App 一样玩</p>
     </div>
-    <div class="version-badge" aria-hidden="true">v20</div>
+    <div class="version-badge" aria-hidden="true">v21</div>
   </div>
 
   <!-- 游戏界面 -->
@@ -105,9 +105,20 @@
 
   <!-- 老虎机界面 -->
   <div id="machine-screen" class="screen">
+    <div class="machine-bg-heads" aria-hidden="true">
+      <img src="assets/media/bubble-head.gif" alt="">
+      <img src="assets/media/bubble-head.gif" alt="">
+      <img src="assets/media/bubble-head.gif" alt="">
+      <img src="assets/media/bubble-head.gif" alt="">
+      <img src="assets/media/bubble-head.gif" alt="">
+      <img src="assets/media/bubble-head.gif" alt="">
+      <img src="assets/media/bubble-head.gif" alt="">
+      <img src="assets/media/bubble-head.gif" alt="">
+      <img src="assets/media/bubble-head.gif" alt="">
+    </div>
     <div class="machine-content">
-      <h1>🎰 神秘老虎机</h1>
-      <p class="subtitle">投入金币，满 <strong data-min-coins>30</strong> 枚可摇手柄，投入全部 <strong data-jackpot-coins>69</strong> 枚赢得 JACKPOT！</p>
+      <h1>🎰 幸运摇摇乐！！</h1>
+      <p class="subtitle">投入全部 <strong data-jackpot-coins>145</strong> 枚金币赢得 JACKPOOOOOOOOTT！！！</p>
 
       <div class="slot-machine">
         <div class="slot-body">
@@ -121,7 +132,7 @@
           <!-- 投币显示 -->
           <div class="slot-display">
             <span id="machine-coin-display">0</span>
-            <small> / <span id="machine-coin-total" data-jackpot-coins>69</span> 枚已投入</small>
+            <small> / <span id="machine-coin-total" data-jackpot-coins>145</span> 枚已投入</small>
           </div>
 
           <!-- 投币口（点击投币） -->
@@ -182,6 +193,6 @@
   <script src="js/pwa.js"></script>
   <script src="js/config.js?v=31"></script>
   <script src="js/audio.js?v=18"></script>
-  <script src="js/game.js?v=42"></script>
+  <script src="js/game.js?v=44"></script>
 </body>
 </html>
