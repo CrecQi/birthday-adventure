@@ -256,7 +256,7 @@ function layerPlatformY(layer, groundY) {
   return groundY - TILE * (2.5 + (layer - 2) * 2.5);
 }
 
-/** #16 等高层箱：紧凑错落阶梯（靠箱子一侧，避免伸到邻箱正下方） */
+/** #16 等高层箱：错落阶梯（无贴地低层平面，从地面可跳上 L2） */
 function addClimbStaircase(bx, topLayer, groundY) {
   for (let i = platforms.length - 1; i >= 0; i--) {
     const p = platforms[i];
@@ -265,18 +265,7 @@ function addClimbStaircase(bx, topLayer, groundY) {
     }
   }
 
-  // 低层入口：最长，但仍贴近本箱左侧
-  platforms.push({
-    x: bx - TILE * 4.6,
-    y: groundY - TILE * 1.15,
-    w: TILE * 2.8,
-    h: TILE * 0.5,
-    type: "platform",
-    role: "step",
-    boxX: bx,
-    lowEntry: true,
-  });
-
+  // L2 … L(top-1)：逐级变短、向右错开（不再放最贴地那一层）
   for (let L = 2; L < topLayer; L++) {
     const idx = L - 2;
     const w = TILE * (2.4 - idx * 0.45);
@@ -292,6 +281,27 @@ function addClimbStaircase(bx, topLayer, groundY) {
   }
 
   return addMainPlatform(bx, topLayer, groundY);
+}
+
+/** 去掉 #15 与 #16 之间最接近地面的那块平面 */
+function removeLowestPlatformBetweenBoxes(boxA, boxB, groundY) {
+  if (!boxA || !boxB) return;
+  const left = Math.min(boxA.x, boxB.x) - TILE;
+  const right = Math.max(boxA.x + boxA.w, boxB.x + boxB.w) + TILE;
+  let lowest = null;
+  let lowestIdx = -1;
+  for (let i = 0; i < platforms.length; i++) {
+    const p = platforms[i];
+    if (p.type !== "platform") continue;
+    if (p.y >= groundY - 4) continue; // 地面
+    const mid = p.x + p.w / 2;
+    if (mid < left || mid > right) continue;
+    if (!lowest || p.y > lowest.y) {
+      lowest = p;
+      lowestIdx = i;
+    }
+  }
+  if (lowestIdx >= 0) platforms.splice(lowestIdx, 1);
 }
 
 /** 去掉某箱子正下方的其它平面（不含地面） */
@@ -601,6 +611,10 @@ function buildLevel() {
     }
   }
 
+  const box15 = boxes.find((b) => b.config?.id === 15);
+  const box16 = boxes.find((b) => b.config?.id === 16);
+  removeLowestPlatformBetweenBoxes(box15, box16, groundY);
+
   const flagX = levelWidth - TILE * 3;
   // 终点神秘门（替代旗帜，需主动按跳跃进入）
   endDoor = {
@@ -782,11 +796,11 @@ function tryRevealMemory() {
   showMemory(cfg);
 }
 
-// 主动进入神秘门（不再靠走近就自动进老虎机）
+// 主动进入神秘门（需集齐全部金币）
 function tryEnterDoor() {
   if (levelComplete || pendingMemory || player.inPipe) return false;
   if (openedBoxes < BOX_CONFIG.length) return false;
-  if (totalCoins < MIN_COINS_TO_ENTER_MACHINE) return false;
+  if (totalCoins < MACHINE_JACKPOT_COINS) return false;
   if (!endDoor) return false;
 
   const atDoor = collides(player, endDoor);
@@ -799,7 +813,7 @@ function tryEnterDoor() {
 }
 
 function isNearDoor() {
-  if (!endDoor || openedBoxes < BOX_CONFIG.length) return false;
+  if (!endDoor || levelComplete) return false;
   const zone = { x: endDoor.x - TILE, y: endDoor.y - TILE * 0.5, w: endDoor.w + TILE * 2, h: endDoor.h + TILE };
   return collides(player, zone);
 }
@@ -1230,10 +1244,15 @@ function render() {
   for (const pipe of pipes) drawPipe(pipe);
 
   // 门前提示
-  if (isNearDoor() && totalCoins >= MIN_COINS_TO_ENTER_MACHINE && !levelComplete) {
-    drawHintText("按空格进入神秘门 🚪", player.x + player.w / 2, player.y - 18);
-  } else if (isNearDoor() && totalCoins < MIN_COINS_TO_ENTER_MACHINE) {
-    drawHintText("金币还不够哦～", player.x + player.w / 2, player.y - 18);
+  if (isNearDoor()) {
+    if (totalCoins >= MACHINE_JACKPOT_COINS && openedBoxes >= BOX_CONFIG.length) {
+      drawHintText("按空格进入神秘门 🚪", player.x + player.w / 2, player.y - 18);
+    } else {
+      drawHintText("小宝要搜集到所有金币才能来敲门儿哦！", player.x + player.w / 2, player.y - 18, {
+        maxWidth: Math.min(gameWidth * 0.9, 340),
+        fontSize: 13,
+      });
+    }
   }
 
   for (const h of heartBubbles) drawHeartBubble(h);
@@ -1282,15 +1301,40 @@ function drawMarioSprite(x, y, w, h) {
   ctx.fillRect(x + w * 0.55, y + h * 0.88, w * 0.45, h * 0.12);
 }
 
-function drawHintText(text, x, y) {
-  ctx.font = "900 15px ZCOOL KuaiLe, sans-serif";
+function drawHintText(text, x, y, opts = {}) {
+  const fontSize = opts.fontSize || 15;
+  const maxWidth = opts.maxWidth || 0;
+  ctx.font = `900 ${fontSize}px ZCOOL KuaiLe, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "bottom";
   ctx.strokeStyle = C.white;
   ctx.lineWidth = 4;
-  ctx.strokeText(text, x, y);
   ctx.fillStyle = C.purpleDark;
-  ctx.fillText(text, x, y);
+
+  const lines = [];
+  if (maxWidth > 0 && ctx.measureText(text).width > maxWidth) {
+    // 尽量在标点或中间断开
+    const mid = Math.ceil(text.length / 2);
+    let split = mid;
+    for (let i = mid; i < text.length - 2; i++) {
+      if ("，。！？、,.!?".includes(text[i])) { split = i + 1; break; }
+    }
+    if (split === mid) {
+      for (let i = mid; i > 2; i--) {
+        if ("，。！？、,.!?".includes(text[i])) { split = i + 1; break; }
+      }
+    }
+    lines.push(text.slice(0, split), text.slice(split));
+  } else {
+    lines.push(text);
+  }
+
+  const lineH = fontSize + 4;
+  lines.forEach((line, i) => {
+    const ly = y - (lines.length - 1 - i) * lineH;
+    ctx.strokeText(line, x, ly);
+    ctx.fillText(line, x, ly);
+  });
 }
 
 // 神秘门 — 替代终点旗帜
