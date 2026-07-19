@@ -348,8 +348,8 @@ function shiftApproachStepLeftOfUnderBox(box, groundY) {
   );
   if (!approach) return;
 
-  // 放到 under 平面左侧，间距约 1.1 格，方便助跑跳上
-  approach.x = under.x - approach.w - TILE * 1.1;
+  // 放到 under 平面左侧，间距约 2 格，方便助跑跳上
+  approach.x = under.x - approach.w - TILE * 2.0;
 }
 
 /** 去掉某箱子正下方的其它平面（不含地面） */
