@@ -6,8 +6,7 @@
 //   layer 2–4        ：侧面台面逐级起跳，走到悬空箱下方再顶开（箱子不接触台面，
 //                      每层台面比上一层高 2.5 格，箱底距台面顶 2.5 格）
 //   onPipe = true    ：悬在管道口正上方，只能站在管道口上起跳顶开；
-//                      顶开后会掉进管道（及时按 ←/→ 可逃离），
-//                      从附近另一根管道掉出来
+//                      顶开回忆关闭后自动掉进管道，从附近另一根管道掉出来
 // ============================================================
 
 const GRAVITY = 0.41;
@@ -21,7 +20,7 @@ let TILE = 40;
 const SHADOW = 4;
 const HEART_BURST_DELAY = 900; // 先看爱心迸溅，再弹回忆
 const MEMORY_REVEAL_TIMEOUT = 3500; // 超时后仍弹出回忆，避免一直等金币落地
-const PIPE_ESCAPE_FRAMES = 55; // 掉管道前的逃离窗口（约 0.9 秒）
+const PIPE_WAIT_FRAMES = 22; // 管道内传送等待帧数
 
 // 明亮香芋紫 + 奶油粉（高级感，不暗沉）
 const C = {
@@ -257,66 +256,44 @@ function layerPlatformY(layer, groundY) {
   return groundY - TILE * (2.5 + (layer - 2) * 2.5);
 }
 
-/** 在 L2 台阶斜下方放一块低层台阶：地面 → 低台阶 → L2 → … */
-function addLowStepPlatform(bx, groundY, anchor, opts = {}) {
-  const step2Y = anchor?.y ?? layerPlatformY(2, groundY);
-  const step2X = anchor?.x ?? (bx - TILE * 3.8);
+/** #16 等高层箱：左低右高阶梯，越低越长，避免同宽竖直叠放爬不上去 */
+function addClimbStaircase(bx, topLayer, groundY) {
+  // 清掉该箱已有台阶与主台面，避免重复
+  for (let i = platforms.length - 1; i >= 0; i--) {
+    const p = platforms[i];
+    if (p.type === "platform" && p.boxX === bx && (p.role === "step" || p.role === "main")) {
+      platforms.splice(i, 1);
+    }
+  }
+
+  // 低层入口：最长、最靠左（约 1.15 格高）
   platforms.push({
-    x: step2X - TILE * 2.4,
-    y: step2Y + TILE * 1.35,
-    w: TILE * 2.6,
+    x: bx - TILE * 6.4,
+    y: groundY - TILE * 1.15,
+    w: TILE * 3.6,
     h: TILE * 0.5,
     type: "platform",
     role: "step",
     boxX: bx,
     lowEntry: true,
-    pipeAvoidExempt: !!opts.pipeAvoidExempt,
   });
-}
 
-/** 全部台面处理完后，按最终 L2 位置补建/校正低层台阶 */
-function finalizeExtraLowSteps(boxes, groundY) {
-  for (const box of boxes) {
-    if (!box.config?.extraLowStep || box.layer < 2 || box.onPipe) continue;
-
-    // 清掉旧的低层台阶，按最终 L2 位置重放
-    for (let i = platforms.length - 1; i >= 0; i--) {
-      const p = platforms[i];
-      if (p.type === "platform" && p.lowEntry && p.boxX === box.x) {
-        platforms.splice(i, 1);
-      }
-    }
-
-    const step2Y = layerPlatformY(2, groundY);
-    const exempt = !!box.config.pipeAvoidExempt;
-    // 优先用仍留在箱子左侧的 L2 台阶（未被挤走）
-    let anchor = platforms.find((p) =>
-      p.type === "platform" &&
-      p.role === "step" &&
-      p.boxX === box.x &&
-      !p.lowEntry &&
-      Math.abs(p.y - step2Y) < 2 &&
-      p.x < box.x
-    );
-    if (!anchor) {
-      anchor = { x: box.x - TILE * 3.8, y: step2Y };
-      // 若 L2 被挤走，在箱子旁重建
-      const hasLocalL2 = platforms.some((p) =>
-        p.type === "platform" &&
-        p.role === "step" &&
-        p.boxX === box.x &&
-        !p.lowEntry &&
-        Math.abs(p.y - step2Y) < 2 &&
-        Math.abs(p.x - (box.x - TILE * 3.8)) < TILE * 2
-      );
-      if (!hasLocalL2) {
-        addSideStepPlatform(box.x, 2, groundY, { pipeAvoidExempt: exempt });
-        anchor = platforms[platforms.length - 1];
-      }
-    }
-
-    addLowStepPlatform(box.x, groundY, anchor, { pipeAvoidExempt: exempt });
+  // L2 … L(top-1)：逐级变短、向右错开，形成可跳的楼梯
+  for (let L = 2; L < topLayer; L++) {
+    const idx = L - 2;
+    const w = TILE * (2.8 - idx * 0.55);
+    platforms.push({
+      x: bx - TILE * (5.1 - idx * 1.15),
+      y: layerPlatformY(L, groundY),
+      w: Math.max(w, TILE * 1.6),
+      h: TILE * 0.5,
+      type: "platform",
+      role: "step",
+      boxX: bx,
+    });
   }
+
+  return addMainPlatform(bx, topLayer, groundY);
 }
 
 function addSideStepPlatform(bx, layer, groundY, opts = {}) {
@@ -475,6 +452,12 @@ function ensureAllBoxesReachable(boxes, groundY) {
       continue;
     }
 
+    // 专用阶梯箱：整段重建，保证错落可爬
+    if (box.config?.extraLowStep) {
+      addClimbStaircase(box.x, box.layer, groundY);
+      continue;
+    }
+
     const needY = layerPlatformY(box.layer, groundY);
     let mainPlat = platforms.find((p) =>
       p.type === "platform" &&
@@ -502,7 +485,6 @@ function ensureAllBoxesReachable(boxes, groundY) {
         p.x + p.w > box.x - TILE * 5.5
       );
       if (!hasLocalStep) {
-        // 清掉被挤到远处的同高度台阶，再在箱子旁重建
         for (let i = platforms.length - 1; i >= 0; i--) {
           const p = platforms[i];
           if (
@@ -518,17 +500,6 @@ function ensureAllBoxesReachable(boxes, groundY) {
         }
         addSideStepPlatform(box.x, L, groundY, platOpts);
       }
-    }
-
-    if (box.config?.extraLowStep) {
-      const hasLowEntry = platforms.some((p) =>
-        p.type === "platform" &&
-        p.role === "step" &&
-        p.boxX === box.x &&
-        p.lowEntry &&
-        p.x + p.w > box.x - TILE * 5.5
-      );
-      if (!hasLowEntry) addLowStepPlatform(box.x, groundY, null, platOpts);
     }
   }
 }
@@ -578,9 +549,12 @@ function buildLevel() {
       platforms.push({ x: px, y: mouthY, w: pipeW, h: groundY - mouthY, type: "pipe" });
       platforms.push({ x: exitX, y: exitMouthY, w: pipeW, h: groundY - exitMouthY, type: "pipe" });
     } else if (cfg.layer >= 2) {
-      const platOpts = { pipeAvoidExempt: !!cfg.pipeAvoidExempt };
-      if (cfg.extraLowStep) addLowStepPlatform(bx, groundY, null, platOpts);
-      boxY = addHighBoxPlatforms(bx, cfg.layer, groundY, platOpts);
+      if (cfg.extraLowStep) {
+        boxY = addClimbStaircase(bx, cfg.layer, groundY);
+      } else {
+        const platOpts = { pipeAvoidExempt: !!cfg.pipeAvoidExempt };
+        boxY = addHighBoxPlatforms(bx, cfg.layer, groundY, platOpts);
+      }
     } else {
       // ---- 第一层悬空箱：地面起跳即可顶到 ----
       boxY = groundY - TILE * 3;
@@ -603,7 +577,6 @@ function buildLevel() {
   mergeVerticalStepStacks();
   ensureAllBoxesReachable(boxes, groundY);
   resolvePlatformPipeOverlap();
-  finalizeExtraLowSteps(boxes, groundY);
 
   const flagX = levelWidth - TILE * 3;
   // 终点神秘门（替代旗帜，需主动按跳跃进入）
@@ -623,7 +596,7 @@ function buildLevel() {
     onGround: false,
     facing: 1,
     animFrame: 0,
-    inPipe: null,       // null | escape_window | sinking | waiting
+    inPipe: null,       // null | sinking | waiting
     pipeRef: null,
     pipeEscapeTimer: 0,
     pipeWait: 0,
@@ -875,35 +848,15 @@ function updateCoins() {
   }
 }
 
-// ---- 管道流程 ----
+// ---- 管道流程（顶开回忆后自动传送，无逃离）----
 function updatePipeState() {
   const pipe = player.pipeRef;
-  const left = keys["ArrowLeft"] || keys["KeyA"] || touchInput.left;
-  const right = keys["ArrowRight"] || keys["KeyD"] || touchInput.right;
-
-  if (player.inPipe === "escape_window") {
-    player.pipeEscapeTimer--;
-    if (left || right) {
-      // 及时逃离：向侧面跳开
-      player.inPipe = null;
-      player.pipeRef = null;
-      player.vx = left ? -7 : 7;
-      player.vy = -8;
-      player.facing = left ? -1 : 1;
-      return;
-    }
-    if (player.pipeEscapeTimer <= 0) {
-      player.inPipe = "sinking";
-      player.x = pipe.x + (pipe.w - player.w) / 2;
-    }
-    return;
-  }
 
   if (player.inPipe === "sinking") {
     player.y += 4;
     if (player.y > pipe.mouthY + TILE * 1.6) {
       player.inPipe = "waiting";
-      player.pipeWait = 25;
+      player.pipeWait = PIPE_WAIT_FRAMES;
     }
     return;
   }
@@ -911,7 +864,6 @@ function updatePipeState() {
   if (player.inPipe === "waiting") {
     player.pipeWait--;
     if (player.pipeWait <= 0) {
-      // 从出口管道弹出
       ensureAudio();
       SFX.pipeExit();
       player.x = pipe.exitX + (pipe.exitW - player.w) / 2;
@@ -1214,11 +1166,6 @@ function render() {
 
   // 管道画在角色之后：下沉/钻出时角色被管道遮住，效果自然
   for (const pipe of pipes) drawPipe(pipe);
-
-  // 逃离提示
-  if (player.inPipe === "escape_window" && Math.floor(player.pipeEscapeTimer / 8) % 2 === 0) {
-    drawHintText("快按 ← / → 逃离！", player.x + player.w / 2, player.y - 12);
-  }
 
   // 门前提示
   if (isNearDoor() && totalCoins >= MIN_COINS_TO_ENTER_MACHINE && !levelComplete) {
@@ -1538,15 +1485,14 @@ function closeMemory() {
   setBgmDucked(false);
   gamePaused = false;
 
-  // 管道口箱子：关闭回忆后站上管道口，进入逃离倒计时
+  // 管道口箱子：关闭回忆后自动掉进管道，传送到出口
   if (pendingPipe) {
     player.x = pendingPipe.x + (pendingPipe.w - player.w) / 2;
     player.y = pendingPipe.mouthY - player.h;
     player.vx = 0;
     player.vy = 0;
-    player.inPipe = "escape_window";
+    player.inPipe = "sinking";
     player.pipeRef = pendingPipe;
-    player.pipeEscapeTimer = PIPE_ESCAPE_FRAMES;
     pendingPipe = null;
   }
 }

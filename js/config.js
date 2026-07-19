@@ -4,7 +4,7 @@
 //        2 = 第二层悬空（跳上台面，走到箱下再顶；箱子不接触台面）
 //        3 = 第三层（台面在第二层上方 2.5 格，同样悬空 2.5 格）
 //        4 = 第四层（同上规律继续叠高）
-// onPipe: true = 放在管道口上（顶开后可能掉进管道）
+// onPipe: true = 放在管道口上（顶开回忆关闭后自动掉进管道，从旁侧出口弹出）
 //
 // 共 20 个回忆：#1–#9 与 #12–#20 对应你按顺序命名的 18 张；
 // #10 猫咪和小p（原 box4 照片）、#11 电🐔恶宝（原 box5 视频）位于中段。
@@ -166,7 +166,7 @@ const BOX_CONFIG = [
     src: "assets/media/box15.jpg?v=2",
     coins: 7,
     layer: 1,
-    onPipe: true,
+    onPipe: false, // 原管道与 #16 挤在一起，改为普通一层箱
   },
   {
     id: 16,
@@ -177,8 +177,7 @@ const BOX_CONFIG = [
     coins: 9,
     layer: 4,
     onPipe: false,
-    extraLowStep: true,
-    pipeAvoidExempt: true, // 附近台阶不受管道避让挤走
+    extraLowStep: true, // 使用简化阶梯台面登高
   },
   {
     id: 17,
