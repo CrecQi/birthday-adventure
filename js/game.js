@@ -1,9 +1,10 @@
 // ============================================================
 // PP生日大冒险 — 游戏主逻辑
 //
-// 箱子三种类型（全部悬空，必须跳起从下方顶开）：
+// 箱子类型（全部悬空，必须跳起从下方顶开）：
 //   layer 1          ：悬在低空，从地面起跳即可顶到
-//   layer 2          ：侧面台面起跳，走到悬空箱下方再顶开（箱子不接触台面）
+//   layer 2–4        ：侧面台面逐级起跳，走到悬空箱下方再顶开（箱子不接触台面，
+//                      每层台面比上一层高 2.5 格，箱底距台面顶 2.5 格）
 //   onPipe = true    ：悬在管道口正上方，只能站在管道口上起跳顶开；
 //                      顶开后会掉进管道（及时按 ←/→ 可逃离），
 //                      从附近另一根管道掉出来
@@ -83,6 +84,12 @@ function init() {
   canvas = document.getElementById("game-canvas");
   ctx = canvas.getContext("2d");
   boxTotalEl.textContent = BOX_CONFIG.length;
+  document.querySelectorAll("[data-min-coins]").forEach((el) => {
+    el.textContent = MIN_COINS_TO_ENTER_MACHINE;
+  });
+  document.querySelectorAll("[data-jackpot-coins]").forEach((el) => {
+    el.textContent = MACHINE_JACKPOT_COINS;
+  });
 
   resizeCanvas();
   window.addEventListener("resize", resizeCanvas);
@@ -238,6 +245,35 @@ function showScreen(name) {
 }
 
 // ---- 关卡构建 ----
+function layerPlatformY(layer, groundY) {
+  return groundY - TILE * (2.5 + (layer - 2) * 2.5);
+}
+
+function addSteppingPlatforms(bx, targetLayer, groundY) {
+  for (let L = 2; L < targetLayer; L++) {
+    platforms.push({
+      x: bx - TILE * 3.8,
+      y: layerPlatformY(L, groundY),
+      w: TILE * 2.2,
+      h: TILE * 0.5,
+      type: "platform",
+    });
+  }
+}
+
+function addLayerPlatform(bx, layer, groundY) {
+  const platY = layerPlatformY(layer, groundY);
+  const platW = TILE * 3;
+  platforms.push({
+    x: bx - (platW - TILE) / 2,
+    y: platY,
+    w: platW,
+    h: TILE * 0.5,
+    type: "platform",
+  });
+  return platY - TILE * 3.5;
+}
+
 function buildLevel() {
   platforms = [];
   boxes = [];
@@ -267,12 +303,17 @@ function buildLevel() {
       const mouthY = groundY - TILE * 2.2;
       boxY = mouthY - TILE * 2.5;
 
-      // 第二层：侧面放台面辅助上台，台面不压在管道上方
-      if (cfg.layer === 2) {
-        platforms.push({
-          x: bx - TILE * 3.8, y: groundY - TILE * 2.5,
-          w: TILE * 2.2, h: TILE * 0.5, type: "platform",
-        });
+      // 第 2–4 层：侧面逐级放台面辅助上台，台面不压在管道上方
+      if (cfg.layer >= 2) {
+        for (let L = 2; L <= cfg.layer; L++) {
+          platforms.push({
+            x: bx - TILE * 3.8,
+            y: layerPlatformY(L, groundY),
+            w: TILE * 2.2,
+            h: TILE * 0.5,
+            type: "platform",
+          });
+        }
       }
 
       // 出口管道默认在右侧；若会撞到终点门则放到左侧
@@ -285,16 +326,10 @@ function buildLevel() {
       pipes.push({ x: exitX, w: pipeW, mouthY: exitMouthY, h: groundY - exitMouthY });
       platforms.push({ x: px, y: mouthY, w: pipeW, h: groundY - mouthY, type: "pipe" });
       platforms.push({ x: exitX, y: exitMouthY, w: pipeW, h: groundY - exitMouthY, type: "pipe" });
-    } else if (cfg.layer === 2) {
-      // ---- 第二层悬空箱：台面在箱子正下方，箱子悬空 2.5 格，
-      //      站上台面后跳一次即可顶到 ----
-      const platY = groundY - TILE * 2.5;
-      const platW = TILE * 3;
-      platforms.push({
-        x: bx - (platW - TILE) / 2, y: platY,
-        w: platW, h: TILE * 0.5, type: "platform",
-      });
-      boxY = platY - TILE * 3.5;
+    } else if (cfg.layer >= 2) {
+      // ---- 第 2–4 层悬空箱：台面在箱子正下方，箱子悬空 2.5 格 ----
+      addSteppingPlatforms(bx, cfg.layer, groundY);
+      boxY = addLayerPlatform(bx, cfg.layer, groundY);
     } else {
       // ---- 第一层悬空箱：地面起跳即可顶到 ----
       boxY = groundY - TILE * 3;
@@ -863,7 +898,7 @@ function render() {
     if (box.opened) {
       drawDoodleRect(box.x, by + box.h * 0.65, box.w, box.h * 0.35, C.purpleDark, { radius: 4 });
     } else {
-      const boxColor = box.layer === 2 ? C.purple : C.purpleLight;
+      const boxColor = box.layer >= 3 ? C.purpleDark : box.layer === 2 ? C.purple : C.purpleLight;
       drawDoodleRect(box.x, by, box.w, box.h, boxColor, { radius: 8 });
       ctx.fillStyle = C.white;
       ctx.font = `900 ${TILE * 0.55}px sans-serif`;
