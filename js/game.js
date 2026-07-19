@@ -55,7 +55,7 @@ let openedBoxes = 0;
 let gamePaused = false;
 let levelComplete = false;
 let jumpHeld = false;
-let camera = { x: 0 };
+let camera = { x: 0, y: 0 };
 let levelWidth = 0;
 let groundTopY = 0;
 let endDoor = null;
@@ -257,18 +257,47 @@ function layerPlatformY(layer, groundY) {
   return groundY - TILE * (2.5 + (layer - 2) * 2.5);
 }
 
-function addLowStepPlatform(bx, groundY) {
-  const step2Y = layerPlatformY(2, groundY);
+/** 在 L2 台阶斜下方放一块低层台阶：地面 → 低台阶 → L2 → … */
+function addLowStepPlatform(bx, groundY, anchor) {
+  const step2Y = anchor?.y ?? layerPlatformY(2, groundY);
+  const step2X = anchor?.x ?? (bx - TILE * 3.8);
   platforms.push({
-    x: bx - TILE * 5.6,
-    y: step2Y + TILE * 1.3,
-    w: TILE * 2.8,
+    x: step2X - TILE * 2.4,
+    y: step2Y + TILE * 1.35,
+    w: TILE * 2.6,
     h: TILE * 0.5,
     type: "platform",
     role: "step",
     boxX: bx,
     lowEntry: true,
   });
+}
+
+/** 全部台面处理完后，按最终 L2 位置补建/校正低层台阶 */
+function finalizeExtraLowSteps(boxes, groundY) {
+  for (const box of boxes) {
+    if (!box.config?.extraLowStep || box.layer < 2 || box.onPipe) continue;
+
+    // 清掉旧的低层台阶，按最终 L2 位置重放，避免被管道避让挤走
+    for (let i = platforms.length - 1; i >= 0; i--) {
+      const p = platforms[i];
+      if (p.type === "platform" && p.lowEntry && p.boxX === box.x) {
+        platforms.splice(i, 1);
+      }
+    }
+
+    const step2Y = layerPlatformY(2, groundY);
+    const anchor =
+      platforms.find((p) =>
+        p.type === "platform" &&
+        p.role === "step" &&
+        p.boxX === box.x &&
+        !p.lowEntry &&
+        Math.abs(p.y - step2Y) < 2
+      ) || { x: box.x - TILE * 3.8, y: step2Y };
+
+    addLowStepPlatform(box.x, groundY, anchor);
+  }
 }
 
 function addSideStepPlatform(bx, layer, groundY) {
@@ -378,6 +407,7 @@ function resolvePlatformPipeOverlap() {
 
   for (const pl of platforms) {
     if (pl.type !== "platform") continue;
+    if (pl.lowEntry) continue; // 低层登高台阶保持相对 L2 的斜下方位置
 
     for (const pp of pipeSolids) {
       if (pl.x + pl.w <= pp.x - gap || pl.x >= pp.x + pp.w + gap) continue;
@@ -527,6 +557,7 @@ function buildLevel() {
   mergeVerticalStepStacks();
   ensureAllBoxesReachable(boxes, groundY);
   resolvePlatformPipeOverlap();
+  finalizeExtraLowSteps(boxes, groundY);
 
   const flagX = levelWidth - TILE * 3;
   // 终点神秘门（替代旗帜，需主动按跳跃进入）
@@ -553,6 +584,7 @@ function buildLevel() {
   };
 
   camera.x = 0;
+  camera.y = 0;
   totalCoins = 0;
   openedBoxes = 0;
   levelComplete = false;
@@ -733,6 +765,22 @@ function updateCamera() {
   camera.x = player.x - gameWidth * 0.35;
   if (camera.x < 0) camera.x = 0;
   if (camera.x > levelWidth - gameWidth) camera.x = levelWidth - gameWidth;
+
+  // 垂直跟随：登到第 3 层附近时画面上移，下来时回落
+  // camera.y < 0 表示视角上移（看到更高的平台）
+  const screenY = player.y - camera.y;
+  let desiredY = camera.y;
+  const topBand = gameHeight * 0.24;
+  const bottomBand = gameHeight * 0.72;
+  if (screenY < topBand) desiredY = player.y - topBand;
+  else if (screenY > bottomBand) desiredY = player.y - bottomBand;
+
+  // 地面默认视角为 0；只允许上移（负值），平滑跟随
+  desiredY = Math.min(0, desiredY);
+  const minCamY = -TILE * 10;
+  desiredY = Math.max(minCamY, desiredY);
+  camera.y += (desiredY - camera.y) * 0.14;
+  if (Math.abs(desiredY - camera.y) < 0.35) camera.y = desiredY;
 }
 
 function updateBoxBounce() {
@@ -1055,7 +1103,7 @@ function render() {
   drawClouds();
 
   ctx.save();
-  ctx.translate(-camera.x, 0);
+  ctx.translate(-camera.x, -camera.y);
 
   // 平台（管道实体由 drawPipe 单独画）
   for (const p of platforms) {
