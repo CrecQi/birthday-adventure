@@ -830,6 +830,8 @@ function gameLoop(timestamp = performance.now()) {
 }
 
 function update() {
+  if (gamePaused) return;
+
   updateBubbles();
   updateCoins();
   updateBoxBounce();
@@ -852,21 +854,42 @@ function update() {
     cameraEasing = true;
   }
 
-  if (left) { player.vx = -MOVE_SPEED; player.facing = -1; }
-  else if (right) { player.vx = MOVE_SPEED; player.facing = 1; }
-  else { player.vx *= FRICTION; }
+  const doorReady = canEnterDoor();
+  const nearDoor = doorReady && isNearDoor();
 
-  // 门前优先进门：不要求贴碰撞盒，也不要求落地（提示区即可）
-  if (jump && !jumpHeld) {
-    if (tryEnterDoor()) {
+  // 门前就绪时：优先尝试进门，并冻结横向移动，避免跳跃键+左键滑向左侧
+  if (nearDoor) {
+    player.vx *= FRICTION;
+    if (jump && !jumpHeld) {
+      if (tryEnterDoor()) {
+        jumpHeld = true;
+        return;
+      }
+      // 条件已满足但仍有阻挡（如未关闭的回忆弹窗）：不执行普通跳跃
       jumpHeld = true;
-    } else if (player.onGround) {
-      player.vy = JUMP_FORCE;
-      player.onGround = false;
-      jumpHeld = true;
+    } else if (!jump) {
+      jumpHeld = false;
+      if (left) { player.vx = -MOVE_SPEED; player.facing = -1; }
+      else if (right) { player.vx = MOVE_SPEED; player.facing = 1; }
     }
+  } else {
+    if (left) { player.vx = -MOVE_SPEED; player.facing = -1; }
+    else if (right) { player.vx = MOVE_SPEED; player.facing = 1; }
+    else { player.vx *= FRICTION; }
+
+    if (jump && !jumpHeld) {
+      if (tryEnterDoor()) {
+        jumpHeld = true;
+        return;
+      }
+      if (player.onGround) {
+        player.vy = JUMP_FORCE;
+        player.onGround = false;
+        jumpHeld = true;
+      }
+    }
+    if (!jump) jumpHeld = false;
   }
-  if (!jump) jumpHeld = false;
 
   player.vy += GRAVITY;
   player.x += player.vx;
@@ -941,12 +964,26 @@ function tryRevealMemory() {
   showMemory(cfg);
 }
 
-// 主动进入神秘门（需集齐全部金币；与提示同用宽松靠近区）
-function tryEnterDoor() {
-  if (levelComplete || pendingMemory || player.inPipe) return false;
+// 主动进入神秘门（需集齐全部金币 + 全部箱子；与提示共用同一靠近区）
+function canEnterDoor() {
+  if (levelComplete || pendingMemory || player.inPipe || !endDoor) return false;
   if (openedBoxes < BOX_CONFIG.length) return false;
   if (totalCoins < MACHINE_JACKPOT_COINS) return false;
-  if (!isNearDoor()) return false;
+  return true;
+}
+
+function getDoorEntryZone() {
+  // 比门框更宽，覆盖「站在门外正前方」的常见站位
+  return {
+    x: endDoor.x - TILE * 3.5,
+    y: endDoor.y - TILE * 0.25,
+    w: endDoor.w + TILE * 4.2,
+    h: endDoor.h + TILE * 1.25,
+  };
+}
+
+function tryEnterDoor() {
+  if (!canEnterDoor() || !isNearDoor()) return false;
 
   levelComplete = true;
   player.vx = 0;
@@ -958,14 +995,7 @@ function tryEnterDoor() {
 
 function isNearDoor() {
   if (!endDoor || levelComplete) return false;
-  // 门外较宽的触发区：站在门前即可进，不必精确叠在门框碰撞盒上
-  const zone = {
-    x: endDoor.x - TILE * 1.4,
-    y: endDoor.y - TILE * 0.5,
-    w: endDoor.w + TILE * 2.8,
-    h: endDoor.h + TILE,
-  };
-  return collides(player, zone);
+  return collides(player, getDoorEntryZone());
 }
 
 function updateCamera() {
@@ -1417,8 +1447,10 @@ function render() {
 
   // 门前提示
   if (isNearDoor()) {
-    if (totalCoins >= MACHINE_JACKPOT_COINS && openedBoxes >= BOX_CONFIG.length) {
-      drawHintText("按空格进入神秘门 🚪", player.x + player.w / 2, player.y - 18);
+    if (canEnterDoor()) {
+      drawHintText("按跳跃进入神秘门 🚪", player.x + player.w / 2, player.y - 18);
+    } else if (pendingMemory) {
+      drawHintText("先看回忆再来敲门哦 💜", player.x + player.w / 2, player.y - 18);
     } else {
       drawHintText("🚪 小宝要搜集到所有金币才能来敲门儿哦！", player.x + player.w / 2, player.y - 18, {
         maxWidth: Math.min(gameWidth * 0.9, 340),
