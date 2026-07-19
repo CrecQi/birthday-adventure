@@ -56,7 +56,7 @@ const BOX_CONFIG = [
     id: 5,
     title: "中秋小灯笼",
     caption: "中秋小鸡笼小灯笼",
-    captionHtml: "中秋小<del>鸡笼</del>小灯笼",
+    captionHtml: "中秋<del>小</del><del>鸡笼</del>小灯笼",
     type: "image",
     src: "assets/media/box5.jpg?v=2",
     coins: 6,

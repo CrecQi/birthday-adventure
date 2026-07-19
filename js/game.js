@@ -258,14 +258,16 @@ function layerPlatformY(layer, groundY) {
 }
 
 function addLowStepPlatform(bx, groundY) {
+  const step2Y = layerPlatformY(2, groundY);
   platforms.push({
-    x: bx - TILE * 3.8,
-    y: groundY - TILE * 1.65,
+    x: bx - TILE * 5.6,
+    y: step2Y + TILE * 1.3,
     w: TILE * 2.8,
     h: TILE * 0.5,
     type: "platform",
     role: "step",
     boxX: bx,
+    lowEntry: true,
   });
 }
 
@@ -357,6 +359,7 @@ function mergeVerticalStepStacks() {
     for (let j = i + 1; j < steps.length; j++) {
       const a = steps[i];
       const b = steps[j];
+      if (a.lowEntry || b.lowEntry) continue;
       if (a.boxX !== b.boxX) continue;
       if (Math.abs(a.x - b.x) > 2 || Math.abs(a.w - b.w) > 2) continue;
       if (Math.abs(a.y - b.y) <= TILE * 0.6) {
@@ -444,6 +447,13 @@ function ensureAllBoxesReachable(boxes, groundY) {
         Math.abs(p.y - stepY) < 2
       );
       if (!hasStep) addSideStepPlatform(box.x, L, groundY);
+    }
+
+    if (box.config?.extraLowStep) {
+      const hasLowEntry = platforms.some((p) =>
+        p.type === "platform" && p.role === "step" && p.boxX === box.x && p.lowEntry
+      );
+      if (!hasLowEntry) addLowStepPlatform(box.x, groundY);
     }
   }
 }
