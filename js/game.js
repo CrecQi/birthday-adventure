@@ -330,6 +330,28 @@ function addUnderBoxPlatformAtBox17Height(bx, groundY) {
   });
 }
 
+/** 把 #16 正下方平面左侧的 L2 台阶左移，留出起跳间距以便跳上该平面 */
+function shiftApproachStepLeftOfUnderBox(box, groundY) {
+  if (!box) return;
+  const under = platforms.find((p) =>
+    p.type === "platform" && p.underBox && p.boxX === box.x
+  );
+  if (!under) return;
+
+  const step2Y = layerPlatformY(2, groundY);
+  const approach = platforms.find((p) =>
+    p.type === "platform" &&
+    p.role === "step" &&
+    p.boxX === box.x &&
+    !p.underBox &&
+    Math.abs(p.y - step2Y) < 2
+  );
+  if (!approach) return;
+
+  // 放到 under 平面左侧，间距约 1.1 格，方便助跑跳上
+  approach.x = under.x - approach.w - TILE * 1.1;
+}
+
 /** 去掉某箱子正下方的其它平面（不含地面） */
 function clearPlatformsDirectlyBelow(box, groundY) {
   const left = box.x - TILE * 0.35;
@@ -640,7 +662,10 @@ function buildLevel() {
   const box15 = boxes.find((b) => b.config?.id === 15);
   const box16 = boxes.find((b) => b.config?.id === 16);
   removeLowestPlatformBetweenBoxes(box15, box16, groundY);
-  if (box16) addUnderBoxPlatformAtBox17Height(box16.x, groundY);
+  if (box16) {
+    addUnderBoxPlatformAtBox17Height(box16.x, groundY);
+    shiftApproachStepLeftOfUnderBox(box16, groundY);
+  }
 
   const flagX = levelWidth - TILE * 3;
   // 终点神秘门（替代旗帜，需主动按跳跃进入）
