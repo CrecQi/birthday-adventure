@@ -115,8 +115,8 @@ function init() {
     if (e.target.closest("video")) return;
     closeMemory();
   });
-  document.getElementById("coin-slot").addEventListener("click", insertCoin);
   document.getElementById("btn-lever").addEventListener("click", pullLever);
+  setupCoinSlotHold();
   document.getElementById("btn-return-game").addEventListener("click", returnToGame);
   document.getElementById("btn-warning-back").addEventListener("click", () => {
     SFX.warningDismiss();
@@ -241,13 +241,24 @@ function setupControls() {
   });
   window.addEventListener("keyup", (e) => { keys[e.code] = false; });
 
+  // Pointer Events：支持跳跃与左右同时按下（多指触控互不抢占）
   const bindTouch = (id, key) => {
     const el = document.getElementById(id);
-    el.addEventListener("touchstart", (e) => { e.preventDefault(); touchInput[key] = true; });
-    el.addEventListener("touchend", (e) => { e.preventDefault(); touchInput[key] = false; });
-    el.addEventListener("mousedown", () => { touchInput[key] = true; });
-    el.addEventListener("mouseup", () => { touchInput[key] = false; });
-    el.addEventListener("mouseleave", () => { touchInput[key] = false; });
+    if (!el) return;
+    el.style.touchAction = "none";
+    const down = (e) => {
+      e.preventDefault();
+      try { el.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
+      touchInput[key] = true;
+    };
+    const up = (e) => {
+      e.preventDefault();
+      touchInput[key] = false;
+    };
+    el.addEventListener("pointerdown", down);
+    el.addEventListener("pointerup", up);
+    el.addEventListener("pointercancel", up);
+    el.addEventListener("lostpointercapture", () => { touchInput[key] = false; });
   };
   bindTouch("btn-left", "left");
   bindTouch("btn-right", "right");
@@ -1786,7 +1797,7 @@ function setReelFinal(el, symbol) {
 }
 
 function insertCoin() {
-  if (totalCoins <= 0 || slotSpinning) return;
+  if (totalCoins <= 0 || slotSpinning) return false;
   ensureAudio();
   SFX.coinInsert();
   totalCoins--;
@@ -1802,6 +1813,68 @@ function insertCoin() {
   if (insertedCoins >= MIN_COINS_TO_ENTER_MACHINE) {
     document.getElementById("btn-lever").disabled = false;
   }
+  return true;
+}
+
+/** 长按投币口 = 连续快速投币 + 爱心迸溅 */
+let coinHoldTimer = null;
+let coinHoldActive = false;
+
+function spawnMachineHeartBurst(anchorEl, scale = 1) {
+  const rect = anchorEl.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const colors = ["💜", "💖", "✨", "💗", "💕"];
+  const count = Math.max(8, Math.floor(18 * scale));
+  for (let i = 0; i < count; i++) {
+    const el = document.createElement("span");
+    el.className = "machine-heart";
+    el.textContent = colors[Math.floor(Math.random() * colors.length)];
+    const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+    const dist = 40 + Math.random() * 70;
+    el.style.left = `${cx}px`;
+    el.style.top = `${cy}px`;
+    el.style.setProperty("--dx", `${Math.cos(angle) * dist}px`);
+    el.style.setProperty("--dy", `${Math.sin(angle) * dist - 30}px`);
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 900);
+  }
+}
+
+function setupCoinSlotHold() {
+  const slot = document.getElementById("coin-slot");
+  if (!slot) return;
+
+  const startHold = (e) => {
+    if (e.button != null && e.button !== 0) return;
+    e.preventDefault();
+    try { slot.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
+    coinHoldActive = true;
+    // 立即投一枚 + 迸溅
+    if (insertCoin()) spawnMachineHeartBurst(slot, 1.1);
+    clearInterval(coinHoldTimer);
+    coinHoldTimer = setInterval(() => {
+      if (!coinHoldActive || totalCoins <= 0 || slotSpinning) {
+        stopHold();
+        return;
+      }
+      if (insertCoin()) spawnMachineHeartBurst(slot, 0.85);
+    }, 70);
+  };
+
+  const stopHold = () => {
+    coinHoldActive = false;
+    clearInterval(coinHoldTimer);
+    coinHoldTimer = null;
+  };
+
+  // pointer：按下立即投币，长按连续投币（等同快速连点）
+  slot.addEventListener("pointerdown", startHold);
+  slot.addEventListener("pointerup", stopHold);
+  slot.addEventListener("pointercancel", stopHold);
+  slot.addEventListener("lostpointercapture", stopHold);
+  slot.style.touchAction = "none";
+  slot.style.userSelect = "none";
 }
 
 function pullLever() {
