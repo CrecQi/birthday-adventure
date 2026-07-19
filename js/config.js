@@ -178,6 +178,7 @@ const BOX_CONFIG = [
     layer: 4,
     onPipe: false,
     extraLowStep: true,
+    pipeAvoidExempt: true, // 附近台阶不受管道避让挤走
   },
   {
     id: 17,

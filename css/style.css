@@ -78,6 +78,21 @@ body::after  { bottom: 12%; right: 8%; font-size: 1.3rem; }
   justify-content: center;
   gap: 0;
   padding: 1vh 0 2vh;
+  position: relative;
+}
+
+.version-badge {
+  position: absolute;
+  right: max(0.75rem, env(safe-area-inset-right));
+  bottom: max(0.65rem, env(safe-area-inset-bottom));
+  font-family: "ZCOOL QingKe HuangYou", "ZCOOL KuaiLe", cursive;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--black);
+  opacity: 0.45;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  z-index: 2;
 }
 
 /* 巨大半圆拱形标题 — 几乎占满上半屏 */

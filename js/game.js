@@ -258,7 +258,7 @@ function layerPlatformY(layer, groundY) {
 }
 
 /** 在 L2 台阶斜下方放一块低层台阶：地面 → 低台阶 → L2 → … */
-function addLowStepPlatform(bx, groundY, anchor) {
+function addLowStepPlatform(bx, groundY, anchor, opts = {}) {
   const step2Y = anchor?.y ?? layerPlatformY(2, groundY);
   const step2X = anchor?.x ?? (bx - TILE * 3.8);
   platforms.push({
@@ -270,6 +270,7 @@ function addLowStepPlatform(bx, groundY, anchor) {
     role: "step",
     boxX: bx,
     lowEntry: true,
+    pipeAvoidExempt: !!opts.pipeAvoidExempt,
   });
 }
 
@@ -278,7 +279,7 @@ function finalizeExtraLowSteps(boxes, groundY) {
   for (const box of boxes) {
     if (!box.config?.extraLowStep || box.layer < 2 || box.onPipe) continue;
 
-    // 清掉旧的低层台阶，按最终 L2 位置重放，避免被管道避让挤走
+    // 清掉旧的低层台阶，按最终 L2 位置重放
     for (let i = platforms.length - 1; i >= 0; i--) {
       const p = platforms[i];
       if (p.type === "platform" && p.lowEntry && p.boxX === box.x) {
@@ -287,20 +288,38 @@ function finalizeExtraLowSteps(boxes, groundY) {
     }
 
     const step2Y = layerPlatformY(2, groundY);
-    const anchor =
-      platforms.find((p) =>
+    const exempt = !!box.config.pipeAvoidExempt;
+    // 优先用仍留在箱子左侧的 L2 台阶（未被挤走）
+    let anchor = platforms.find((p) =>
+      p.type === "platform" &&
+      p.role === "step" &&
+      p.boxX === box.x &&
+      !p.lowEntry &&
+      Math.abs(p.y - step2Y) < 2 &&
+      p.x < box.x
+    );
+    if (!anchor) {
+      anchor = { x: box.x - TILE * 3.8, y: step2Y };
+      // 若 L2 被挤走，在箱子旁重建
+      const hasLocalL2 = platforms.some((p) =>
         p.type === "platform" &&
         p.role === "step" &&
         p.boxX === box.x &&
         !p.lowEntry &&
-        Math.abs(p.y - step2Y) < 2
-      ) || { x: box.x - TILE * 3.8, y: step2Y };
+        Math.abs(p.y - step2Y) < 2 &&
+        Math.abs(p.x - (box.x - TILE * 3.8)) < TILE * 2
+      );
+      if (!hasLocalL2) {
+        addSideStepPlatform(box.x, 2, groundY, { pipeAvoidExempt: exempt });
+        anchor = platforms[platforms.length - 1];
+      }
+    }
 
-    addLowStepPlatform(box.x, groundY, anchor);
+    addLowStepPlatform(box.x, groundY, anchor, { pipeAvoidExempt: exempt });
   }
 }
 
-function addSideStepPlatform(bx, layer, groundY) {
+function addSideStepPlatform(bx, layer, groundY, opts = {}) {
   platforms.push({
     x: bx - TILE * 3.8,
     y: layerPlatformY(layer, groundY),
@@ -309,10 +328,11 @@ function addSideStepPlatform(bx, layer, groundY) {
     type: "platform",
     role: "step",
     boxX: bx,
+    pipeAvoidExempt: !!opts.pipeAvoidExempt,
   });
 }
 
-function addMainPlatform(bx, layer, groundY) {
+function addMainPlatform(bx, layer, groundY, opts = {}) {
   const platY = layerPlatformY(layer, groundY);
   const platW = TILE * 3;
   platforms.push({
@@ -323,16 +343,17 @@ function addMainPlatform(bx, layer, groundY) {
     type: "platform",
     role: "main",
     boxX: bx,
+    pipeAvoidExempt: !!opts.pipeAvoidExempt,
   });
   return platY - TILE * 3.5;
 }
 
 /** 高处箱子：低层左侧窄台阶逐级上升，顶层仅在箱正下方放主台面 */
-function addHighBoxPlatforms(bx, layer, groundY) {
+function addHighBoxPlatforms(bx, layer, groundY, opts = {}) {
   for (let L = 2; L < layer; L++) {
-    addSideStepPlatform(bx, L, groundY);
+    addSideStepPlatform(bx, L, groundY, opts);
   }
-  return addMainPlatform(bx, layer, groundY);
+  return addMainPlatform(bx, layer, groundY, opts);
 }
 
 function platformCoversBox(pl, bx) {
@@ -407,7 +428,8 @@ function resolvePlatformPipeOverlap() {
 
   for (const pl of platforms) {
     if (pl.type !== "platform") continue;
-    if (pl.lowEntry) continue; // 低层登高台阶保持相对 L2 的斜下方位置
+    // 管道避让例外：低层台阶 / 标记豁免的箱子附近台面不挤走
+    if (pl.lowEntry || pl.pipeAvoidExempt) continue;
 
     for (const pp of pipeSolids) {
       if (pl.x + pl.w <= pp.x - gap || pl.x >= pp.x + pp.w + gap) continue;
@@ -441,13 +463,14 @@ function resolvePlatformPipeOverlap() {
 function ensureAllBoxesReachable(boxes, groundY) {
   for (const box of boxes) {
     if (box.layer < 2) continue;
+    const platOpts = { pipeAvoidExempt: !!box.config?.pipeAvoidExempt };
 
     if (box.onPipe) {
       if (box.layer >= 2) {
         const hasStep = platforms.some((p) =>
           p.type === "platform" && p.role === "step" && p.boxX === box.x
         );
-        if (!hasStep) addSideStepPlatform(box.x, 2, groundY);
+        if (!hasStep) addSideStepPlatform(box.x, 2, groundY, platOpts);
       }
       continue;
     }
@@ -464,26 +487,48 @@ function ensureAllBoxesReachable(boxes, groundY) {
       if (mainPlat) {
         ensureMainPlatformCoversBox(mainPlat, box.x);
       } else {
-        addMainPlatform(box.x, box.layer, groundY);
+        addMainPlatform(box.x, box.layer, groundY, platOpts);
       }
     }
 
     for (let L = 2; L < box.layer; L++) {
       const stepY = layerPlatformY(L, groundY);
-      const hasStep = platforms.some((p) =>
+      const hasLocalStep = platforms.some((p) =>
         p.type === "platform" &&
         p.role === "step" &&
         p.boxX === box.x &&
-        Math.abs(p.y - stepY) < 2
+        !p.lowEntry &&
+        Math.abs(p.y - stepY) < 2 &&
+        p.x + p.w > box.x - TILE * 5.5
       );
-      if (!hasStep) addSideStepPlatform(box.x, L, groundY);
+      if (!hasLocalStep) {
+        // 清掉被挤到远处的同高度台阶，再在箱子旁重建
+        for (let i = platforms.length - 1; i >= 0; i--) {
+          const p = platforms[i];
+          if (
+            p.type === "platform" &&
+            p.role === "step" &&
+            p.boxX === box.x &&
+            !p.lowEntry &&
+            Math.abs(p.y - stepY) < 2 &&
+            p.x + p.w <= box.x - TILE * 5.5
+          ) {
+            platforms.splice(i, 1);
+          }
+        }
+        addSideStepPlatform(box.x, L, groundY, platOpts);
+      }
     }
 
     if (box.config?.extraLowStep) {
       const hasLowEntry = platforms.some((p) =>
-        p.type === "platform" && p.role === "step" && p.boxX === box.x && p.lowEntry
+        p.type === "platform" &&
+        p.role === "step" &&
+        p.boxX === box.x &&
+        p.lowEntry &&
+        p.x + p.w > box.x - TILE * 5.5
       );
-      if (!hasLowEntry) addLowStepPlatform(box.x, groundY);
+      if (!hasLowEntry) addLowStepPlatform(box.x, groundY, null, platOpts);
     }
   }
 }
@@ -533,8 +578,9 @@ function buildLevel() {
       platforms.push({ x: px, y: mouthY, w: pipeW, h: groundY - mouthY, type: "pipe" });
       platforms.push({ x: exitX, y: exitMouthY, w: pipeW, h: groundY - exitMouthY, type: "pipe" });
     } else if (cfg.layer >= 2) {
-      if (cfg.extraLowStep) addLowStepPlatform(bx, groundY);
-      boxY = addHighBoxPlatforms(bx, cfg.layer, groundY);
+      const platOpts = { pipeAvoidExempt: !!cfg.pipeAvoidExempt };
+      if (cfg.extraLowStep) addLowStepPlatform(bx, groundY, null, platOpts);
+      boxY = addHighBoxPlatforms(bx, cfg.layer, groundY, platOpts);
     } else {
       // ---- 第一层悬空箱：地面起跳即可顶到 ----
       boxY = groundY - TILE * 3;
