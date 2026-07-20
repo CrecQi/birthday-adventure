@@ -17,6 +17,12 @@
   --bg-warm: #FFF5F9;
   --gold: #FFE08A;
   --heart: #E9D5FF;
+  --cover-bg-gradient: linear-gradient(135deg, #d4c4fb 0%, #a88beb 100%);
+  --cover-pattern-image:
+    linear-gradient(45deg, #4c1d95 25%, transparent 25%),
+    linear-gradient(-45deg, #4c1d95 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #4c1d95 75%),
+    linear-gradient(-45deg, transparent 75%, #4c1d95 75%);
   --shadow: 5px 5px 0 var(--black);
   --shadow-sm: 3px 3px 0 var(--black);
   --border: 3px solid var(--black);
@@ -85,7 +91,7 @@ body:has(#start-screen.active)::after {
   padding: 1vh 0 2vh;
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, #d4c4fb 0%, #a88beb 100%);
+  background: var(--cover-bg-gradient);
 }
 
 .cover-bg-pattern {
@@ -93,11 +99,7 @@ body:has(#start-screen.active)::after {
   inset: 0;
   pointer-events: none;
   opacity: 0.05;
-  background-image:
-    linear-gradient(45deg, #4c1d95 25%, transparent 25%),
-    linear-gradient(-45deg, #4c1d95 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #4c1d95 75%),
-    linear-gradient(-45deg, transparent 75%, #4c1d95 75%);
+  background-image: var(--cover-pattern-image);
   background-size: 28px 28px;
   background-position: 0 0, 0 14px, 14px -14px, -14px 0;
 }
@@ -158,9 +160,10 @@ body:has(#start-screen.active)::after {
   position: relative;
   z-index: 1;
   filter:
-    drop-shadow(0 1px 0 rgba(251, 189, 35, 0.55))
-    drop-shadow(0 2px 0 rgba(251, 189, 35, 0.25))
-    drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+    drop-shadow(0 0 2px rgba(255, 255, 255, 0.95))
+    drop-shadow(0 0 7px rgba(255, 255, 255, 0.7))
+    drop-shadow(0 0 14px rgba(255, 255, 255, 0.4))
+    drop-shadow(0 4px 8px rgba(76, 29, 149, 0.12));
 }
 
 /* 封面：标题下方的摇头小宝（保留抠图不规则边，仅物理投影） */
@@ -306,9 +309,45 @@ body:has(#start-screen.active)::after {
   .pp-headline-wrap {
     width: min(96vw, 920px);
   }
+}
+
+@media (max-width: 600px) and (orientation: landscape) {
   .cover-bubble-head {
     width: min(38vw, 150px);
     margin-top: min(-11vh, -70px);
+  }
+}
+
+/* 竖屏：标题与 bubble head 分层，避免遮挡 */
+@media (orientation: portrait) {
+  #start-screen {
+    padding-top: max(1.2vh, env(safe-area-inset-top, 0px));
+  }
+
+  .pp-headline-wrap {
+    width: min(94vw, 900px);
+    margin-bottom: 0.35rem;
+    z-index: 2;
+  }
+
+  .cover-bubble-head {
+    width: min(34vw, 145px);
+    margin-top: 0.2rem;
+    margin-bottom: 0.45rem;
+    z-index: 1;
+  }
+}
+
+@media (orientation: portrait) and (max-height: 700px) {
+  .pp-headline-wrap {
+    width: min(92vw, 840px);
+    margin-bottom: 0.15rem;
+  }
+
+  .cover-bubble-head {
+    width: min(30vw, 118px);
+    margin-top: 0.1rem;
+    margin-bottom: 0.3rem;
   }
 }
 
@@ -366,30 +405,6 @@ body:has(#start-screen.active)::after {
 .btn-primary:active {
   transform: translate(2px, 2px);
   box-shadow: 1px 1px 0 var(--black);
-}
-
-#start-screen .btn-primary {
-  background: linear-gradient(135deg, #c4b5fd 0%, #9333ea 100%);
-  color: #fff;
-  border: 1px solid rgba(124, 58, 237, 0.28);
-  box-shadow:
-    0 4px 16px rgba(76, 29, 149, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  text-shadow: 0 1px 2px rgba(76, 29, 149, 0.25);
-}
-
-#start-screen .btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow:
-    0 6px 20px rgba(76, 29, 149, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4);
-}
-
-#start-screen .btn-primary:active {
-  transform: translateY(1px);
-  box-shadow:
-    0 2px 8px rgba(76, 29, 149, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
 .btn-group {
@@ -524,7 +539,7 @@ body:has(#start-screen.active)::after {
 }
 
 /* 小屏手机适配 */
-@media (max-height: 700px) {
+@media (max-height: 700px) and (orientation: landscape) {
   .pp-headline-wrap {
     width: min(94vw, 880px);
   }
@@ -532,6 +547,9 @@ body:has(#start-screen.active)::after {
     width: min(32vw, 120px);
     margin-top: min(-9vh, -55px);
   }
+}
+
+@media (max-height: 700px) {
   #start-screen .start-content {
     padding: 1rem 1.1rem 1.2rem;
   }
@@ -778,10 +796,22 @@ body:has(#start-screen.active)::after {
 
 /* ---- 老虎机 ---- */
 #machine-screen {
-  background: linear-gradient(165deg, #FFF7FC 0%, #F3E8FF 42%, #EDE4FF 100%);
+  background: var(--cover-bg-gradient);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   position: relative;
+}
+
+#machine-screen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: var(--cover-pattern-image);
+  background-size: 28px 28px;
+  background-position: 0 0, 0 14px, 14px -14px, -14px 0;
+  z-index: 0;
 }
 
 /* 稀疏平铺的 bubble-head：9 个，低透明，不抢戏 */
