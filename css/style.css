@@ -115,7 +115,7 @@ body::after  { bottom: 12%; right: 8%; font-size: 1.3rem; }
   flex-shrink: 0;
   display: flex;
   justify-content: center;
-  filter: drop-shadow(0 4px 14px rgba(91, 33, 182, 0.14));
+  filter: drop-shadow(0 2px 8px rgba(74, 68, 88, 0.08));
 }
 
 /* 封面：标题下方的摇头小宝 */
