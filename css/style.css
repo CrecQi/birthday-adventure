@@ -108,49 +108,20 @@ body::after  { bottom: 12%; right: 8%; font-size: 1.3rem; }
   z-index: 2;
 }
 
-/* 拱形标题 — 逐字沿弧线 + 流光渐变 */
-.arch-title-wrap {
-  width: min(98vw, 980px);
-  height: min(52vh, 420px);
-  margin: 0 auto 0.2rem;
-  animation: archTitleFloat 4.5s ease-in-out infinite;
+/* 封面手写标题容器 */
+.pp-headline-wrap {
+  width: min(98vw, 960px);
+  margin: 0 auto 0.35rem;
   flex-shrink: 0;
-  position: relative;
+  display: flex;
+  justify-content: center;
+  filter: drop-shadow(0 4px 14px rgba(91, 33, 182, 0.14));
 }
 
-.arch-title-svg {
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-  display: block;
-}
-
-.arch-title-letters .arch-char {
-  font-family: "ZCOOL KuaiLe", cursive;
-  font-size: 110px;
-  fill: url(#archTitleGrad);
-  stroke: var(--black);
-  stroke-width: 7px;
-  paint-order: stroke fill;
-}
-
-.arch-title-shadow .arch-char-shadow {
-  font-family: "ZCOOL KuaiLe", cursive;
-  font-size: 110px;
-  fill: rgba(167, 139, 250, 0.35);
-  stroke: none;
-  pointer-events: none;
-}
-
-@keyframes archTitleFloat {
-  0%, 100% { transform: translateY(0) scale(1); }
-  50%       { transform: translateY(-6px) scale(1.03); }
-}
-
-/* 封面：标题拱门下方的摇头小宝 */
+/* 封面：标题下方的摇头小宝 */
 .cover-bubble-head {
   display: block;
-  margin: min(-14vh, -90px) auto 0.4rem;
+  margin: min(-2vh, -12px) auto 0.4rem;
   width: min(34vw, 190px);
   height: auto;
   position: relative;
@@ -277,13 +248,8 @@ body::after  { bottom: 12%; right: 8%; font-size: 1.3rem; }
 }
 
 @media (max-width: 600px) {
-  .arch-title-wrap {
-    height: min(40vh, 280px);
-  }
-  .arch-title-letters .arch-char,
-  .arch-title-shadow .arch-char-shadow {
-    font-size: 78px;
-    stroke-width: 5px;
+  .pp-headline-wrap {
+    width: min(96vw, 920px);
   }
   .cover-bubble-head {
     width: min(38vw, 150px);
@@ -460,12 +426,8 @@ body::after  { bottom: 12%; right: 8%; font-size: 1.3rem; }
 
 /* 小屏手机适配 */
 @media (max-height: 700px) {
-  .arch-title-wrap {
-    height: min(36vh, 240px);
-  }
-  .arch-title-letters .arch-char,
-  .arch-title-shadow .arch-char-shadow {
-    font-size: 68px;
+  .pp-headline-wrap {
+    width: min(94vw, 880px);
   }
   .cover-bubble-head {
     width: min(32vw, 120px);

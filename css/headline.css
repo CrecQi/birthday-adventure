@@ -1,0 +1,68 @@
+/* PP's Birthday Adventure — 手写勾勒标题动画
+   源文件：assets/icons/PP's Birthday Adventure HEADLINE.html
+   笔触逐笔勾勒 → 停留 → 消失重绘，无限循环 */
+
+#pp-title {
+  --ink: #5B21B6;
+  width: 100%;
+}
+
+#pp-title svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.pp-stroke {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 11;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation-duration: 10s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@keyframes ppd0{0%,0.000%{stroke-dashoffset:1}3.697%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd1{0%,3.697%{stroke-dashoffset:1}7.394%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd2{0%,7.394%{stroke-dashoffset:1}7.586%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd3{0%,7.586%{stroke-dashoffset:1}8.441%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd4{0%,8.441%{stroke-dashoffset:1}9.078%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd5{0%,9.078%{stroke-dashoffset:1}12.393%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd6{0%,12.393%{stroke-dashoffset:1}13.543%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd7{0%,13.543%{stroke-dashoffset:1}13.736%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd8{0%,13.736%{stroke-dashoffset:1}14.806%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd9{0%,14.806%{stroke-dashoffset:1}16.146%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd10{0%,16.146%{stroke-dashoffset:1}16.533%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd11{0%,16.533%{stroke-dashoffset:1}18.043%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd12{0%,18.043%{stroke-dashoffset:1}18.382%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd13{0%,18.382%{stroke-dashoffset:1}20.351%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd14{0%,20.351%{stroke-dashoffset:1}21.853%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd15{0%,21.853%{stroke-dashoffset:1}23.968%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd16{0%,23.968%{stroke-dashoffset:1}24.813%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd17{0%,24.813%{stroke-dashoffset:1}27.167%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd18{0%,27.167%{stroke-dashoffset:1}28.352%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd19{0%,28.352%{stroke-dashoffset:1}30.625%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd20{0%,30.625%{stroke-dashoffset:1}34.572%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd21{0%,34.572%{stroke-dashoffset:1}36.686%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd22{0%,36.686%{stroke-dashoffset:1}37.532%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd23{0%,37.532%{stroke-dashoffset:1}38.826%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd24{0%,38.826%{stroke-dashoffset:1}39.291%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd25{0%,39.291%{stroke-dashoffset:1}40.790%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd26{0%,40.790%{stroke-dashoffset:1}41.534%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd27{0%,41.534%{stroke-dashoffset:1}42.885%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd28{0%,42.885%{stroke-dashoffset:1}43.271%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd29{0%,43.271%{stroke-dashoffset:1}44.782%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd30{0%,44.782%{stroke-dashoffset:1}45.121%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd31{0%,45.121%{stroke-dashoffset:1}46.305%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd32{0%,46.305%{stroke-dashoffset:1}47.162%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd33{0%,47.162%{stroke-dashoffset:1}48.501%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+@keyframes ppd34{0%,48.501%{stroke-dashoffset:1}50.000%,99.85%{stroke-dashoffset:0}100%{stroke-dashoffset:1}}
+
+@media (max-width: 600px) {
+  .pp-stroke { stroke-width: 8; }
+}

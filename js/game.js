@@ -96,36 +96,6 @@ const giftModal = document.getElementById("gift-modal");
 const coinWarningModal = document.getElementById("coin-warning-modal");
 
 // ---- 初始化 ----
-/** 拱形标题：逐字沿弧线排列，带错峰波浪动画 */
-function setupArchTitle() {
-  const lettersRoot = document.getElementById("arch-title-letters");
-  const shadowRoot = document.getElementById("arch-title-shadow");
-  if (!lettersRoot || !shadowRoot) return;
-
-  const title = "PP生日大冒险";
-  // 沿弧线的字间距（%），居中于 50%
-  const offsets = [31.5, 36.5, 41.5, 46.5, 51.5, 56.5, 61.5, 66.5];
-
-  const makeChar = (ch, i, cls, extra = "") => {
-    const off = offsets[i] ?? 50;
-    const begin = (i * 0.14).toFixed(2);
-    return `<text class="${cls}" font-size="110" font-family="ZCOOL KuaiLe, cursive"${extra}>
-      <textPath href="#title-arc" startOffset="${off}%" text-anchor="middle">
-        <animate attributeName="dy" values="0;-10;0" dur="2.6s" begin="${begin}s" repeatCount="indefinite"/>
-        ${ch}
-      </textPath>
-    </text>`;
-  };
-
-  lettersRoot.innerHTML = title.split("").map((ch, i) => makeChar(ch, i, "arch-char")).join("");
-  shadowRoot.innerHTML = title.split("").map((ch, i) => {
-    const off = offsets[i] ?? 50;
-    return `<text class="arch-char-shadow" font-size="110" font-family="ZCOOL KuaiLe, cursive">
-      <textPath href="#title-arc" startOffset="${off}%" text-anchor="middle" dy="6">${ch}</textPath>
-    </text>`;
-  }).join("");
-}
-
 function init() {
   canvas = document.getElementById("game-canvas");
   ctx = canvas.getContext("2d");
@@ -137,7 +107,6 @@ function init() {
     el.textContent = MACHINE_JACKPOT_COINS;
   });
 
-  setupArchTitle();
   resizeCanvas();
   window.addEventListener("resize", resizeCanvas);
   if (window.visualViewport) {
