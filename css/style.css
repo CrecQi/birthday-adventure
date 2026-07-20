@@ -814,11 +814,11 @@ body:has(#start-screen.active)::after {
   z-index: 0;
 }
 
-/* 稀疏平铺的 bubble-head：9 个，低透明，不抢戏 */
+/* 稀疏平铺的 bubble-head-bob：9 个，低透明，叠在背景纹理之上 */
 .machine-bg-heads {
   position: absolute;
   inset: 0;
-  z-index: 0;
+  z-index: 1;
   pointer-events: none;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -849,7 +849,7 @@ body:has(#start-screen.active)::after {
 
 #machine-screen .machine-content {
   position: relative;
-  z-index: 1;
+  z-index: 2;
 }
 
 /* 投币爱心迸溅（DOM） */
