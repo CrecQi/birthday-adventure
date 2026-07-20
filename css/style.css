@@ -814,7 +814,7 @@ body:has(#start-screen.active)::after {
   z-index: 0;
 }
 
-/* 稀疏平铺的 bubble-head-bob：9 个，低透明，叠在背景纹理之上 */
+/* 稀疏平铺的 bubble-head-bob：9 个，叠在背景纹理之上（透明度 0 = 完全不透明） */
 .machine-bg-heads {
   position: absolute;
   inset: 0;
@@ -824,7 +824,7 @@ body:has(#start-screen.active)::after {
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(3, 1fr);
   place-items: center;
-  opacity: 0.16;
+  opacity: 1;
   overflow: hidden;
 }
 
@@ -832,6 +832,7 @@ body:has(#start-screen.active)::after {
   width: min(16vw, 88px);
   height: auto;
   filter: saturate(0.95);
+  image-rendering: auto;
 }
 
 .machine-bg-heads img:nth-child(odd) {
@@ -844,7 +845,6 @@ body:has(#start-screen.active)::after {
 
 .machine-bg-heads img:nth-child(5) {
   transform: rotate(0deg) scale(1.05);
-  opacity: 0.9;
 }
 
 #machine-screen .machine-content {
