@@ -341,7 +341,7 @@ function showScreen(name) {
 
 /** 老虎机背景 GIF 在 display:none 时浏览器会停帧，切屏后需重载 */
 function restartMachineBgGifs() {
-  const base = "assets/media/bubble-head-bob.gif?v=2";
+  const base = "assets/media/bubble-head-bob.gif?v=3";
   document.querySelectorAll(".machine-bg-heads img").forEach((img, i) => {
     img.src = `${base}?t=${Date.now()}_${i}`;
   });
