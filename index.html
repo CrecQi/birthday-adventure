@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=ZCOOL+KuaiLe&family=ZCOOL+QingKe+HuangYou&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/headline.css?v=4">
-  <link rel="stylesheet" href="css/style.css?v=31">
+  <link rel="stylesheet" href="css/style.css?v=34">
 </head>
 <body>
   <!-- 开始界面 -->
@@ -120,7 +120,7 @@
       </div>
       <p class="hint">💡 电脑：方向键移动 · 空格跳跃<br>手机：用屏幕下方按钮操作<br>📲 分享 → <strong>添加到主屏幕</strong>，像 App 一样玩</p>
     </div>
-    <div class="version-badge" aria-hidden="true">v33</div>
+    <div class="version-badge" aria-hidden="true">v34</div>
   </div>
 
   <!-- 游戏界面 -->
@@ -226,24 +226,27 @@
   <!-- 神秘礼物 -->
   <div id="gift-modal" class="modal hidden">
     <div class="modal-content gift-content">
-      <div class="confetti">🎉✨🎊💜🎈</div>
       <h1>生日快乐，小胡宝！</h1>
-      <p class="gift-message">
-        谢谢你陪我走过每一段路。<br>
-        每一枚金币都是我们共同的回忆，<br>
-        而真正的神秘礼物——<br>
-        <strong>就在我手里，等送给你 💝</strong>
-      </p>
-      <p class="gift-footer">愿我们的故事，永远未完待续…… 💜</p>
-      <div class="btn-group">
-        <button id="btn-replay" class="btn-primary">💜 再玩一次</button>
+      <p class="gift-message">刚才搜集的每一颗小金币&amp;小盒子都是我们共同的回忆呢！✨</p>
+      <p class="gift-message">据说，这次生日还有一个神秘的礼物！🎁</p>
+      <p class="gift-message gift-message--highlight">据说，要此时此刻亲一口本小游戏的 vibe coder 才可以拿到哦！😘</p>
+      <div class="btn-group gift-actions">
+        <button id="btn-replay" class="btn-primary" type="button">💜 再玩一次</button>
+        <button id="btn-bts" class="btn-secondary" type="button">🎬 看看花絮</button>
       </div>
+    </div>
+  </div>
+
+  <!-- 花絮视频（播放结束后点击任意处返回礼物弹窗） -->
+  <div id="bts-modal" class="modal hidden">
+    <div class="modal-content bts-content">
+      <video id="bts-video" src="assets/media/bts.mp4" playsinline webkit-playsinline preload="auto"></video>
     </div>
   </div>
 
   <script src="js/pwa.js"></script>
   <script src="js/config.js?v=31"></script>
   <script src="js/audio.js?v=19"></script>
-  <script src="js/game.js?v=53"></script>
+  <script src="js/game.js?v=55"></script>
 </body>
 </html>

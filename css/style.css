@@ -1148,38 +1148,109 @@ body:has(#start-screen.active)::after {
 .gift-content h1 {
   font-size: 1.5rem;
   font-weight: 900;
-  margin: 1rem 0;
+  margin: 0.5rem 0 1rem;
   line-height: 1.5;
-}
-
-.confetti {
-  font-size: 2rem;
-  letter-spacing: 0.4rem;
-  animation: wiggle 1.2s ease-in-out infinite;
-}
-
-@keyframes wiggle {
-  0%, 100% { transform: rotate(-3deg); }
-  50%       { transform: rotate(3deg); }
 }
 
 .gift-message {
   font-size: 1rem;
-  line-height: 2;
+  line-height: 1.85;
   color: #333;
-  margin: 1.2rem 0;
+  margin: 0.65rem 0;
   font-weight: 600;
 }
 
-.gift-message strong {
-  color: var(--purple);
-  font-size: 1.1rem;
-  font-weight: 900;
+.gift-message--highlight {
+  color: #a78bfa;
+  font-weight: 800;
 }
 
-.gift-footer {
-  color: #888;
-  font-style: italic;
-  margin-bottom: 1.5rem;
-  font-weight: 600;
+.gift-actions {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.65rem;
+  margin-top: 1.25rem;
+}
+
+.gift-actions .btn-primary,
+.gift-actions .btn-secondary {
+  margin-top: 0;
+  width: auto;
+  min-width: 132px;
+  flex: 1 1 132px;
+  max-width: 168px;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+/* 礼物弹窗四边迸溅 */
+.gift-burst {
+  position: fixed;
+  z-index: 250;
+  font-size: 1.35rem;
+  pointer-events: none;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  animation: giftBurstFly 1.05s ease-out forwards;
+}
+
+.gift-ribbon {
+  position: fixed;
+  z-index: 250;
+  width: 7px;
+  height: 24px;
+  border-radius: 2px;
+  pointer-events: none;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  animation: giftBurstFly 1.1s ease-out forwards;
+  box-shadow: 1px 1px 0 rgba(61, 53, 88, 0.12);
+}
+
+@keyframes giftBurstFly {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.45) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform:
+      translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px)))
+      scale(1.15)
+      rotate(var(--rot, 0deg));
+  }
+}
+
+/* ---- 花絮视频弹窗 ---- */
+#bts-modal {
+  z-index: 150;
+  background: rgba(26, 26, 26, 0.72);
+  cursor: default;
+}
+
+#bts-modal.bts-ready {
+  cursor: pointer;
+}
+
+.bts-content {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  max-width: min(92vw, 720px);
+  width: 100%;
+  overflow: visible;
+}
+
+.bts-content video {
+  display: block;
+  width: 100%;
+  max-height: 80dvh;
+  border-radius: var(--radius);
+  border: 4px solid var(--black);
+  box-shadow: 8px 8px 0 var(--black);
+  background: #000;
 }
