@@ -15,6 +15,8 @@ OUT="$MEDIA/bts.mp4"
 
 find_src() {
   local candidates=(
+    "$MEDIA/behind the scene.mp4"
+    "$MEDIA/behind the scene.mov"
     "$MEDIA/Behind the Scenes.mp4"
     "$MEDIA/Behind the Scenes.mov"
     "$MEDIA/Behind the Scenes.webm"

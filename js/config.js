@@ -254,6 +254,6 @@ const MIN_COINS_TO_ENTER_MACHINE = Math.max(30, Math.floor(MACHINE_JACKPOT_COINS
 
 /** 花絮视频（压缩后路径；原片见 scripts/compress-bts.sh） */
 const BTS_VIDEO = {
-  src: "assets/media/bts.mp4?v=1",
-  poster: "assets/media/bts_poster.jpg?v=1",
+  src: "assets/media/bts.mp4?v=2",
+  poster: "assets/media/bts_poster.jpg?v=2",
 };
