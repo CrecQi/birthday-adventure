@@ -1,5 +1,5 @@
 /* PP生日大冒险 — Service Worker */
-const CACHE_VERSION = "ba-v13";
+const CACHE_VERSION = "ba-v14";
 const CACHE_NAME = `birthday-adventure-${CACHE_VERSION}`;
 
 const PRECACHE_URLS = [
