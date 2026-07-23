@@ -1,5 +1,5 @@
 /* PP生日大冒险 — Service Worker */
-const CACHE_VERSION = "ba-v14";
+const CACHE_VERSION = "ba-v15";
 const CACHE_NAME = `birthday-adventure-${CACHE_VERSION}`;
 
 const PRECACHE_URLS = [
@@ -40,6 +40,12 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+
+  // 外挂字幕始终走网络，避免 SW 缓存旧稿
+  if (url.pathname.endsWith(".vtt")) {
+    event.respondWith(fetch(request));
+    return;
+  }
 
   if (request.mode === "navigate" || request.destination === "document") {
     event.respondWith(
