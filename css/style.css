@@ -1241,18 +1241,17 @@ body:has(#start-screen.active)::after {
   pointer-events: none;
 }
 
-/* bob 脸在帧内偏小：放大并对齐面部高度 */
+/* bob 与 bubble-head 视觉等高 */
 .gift-chibi-head--bob {
-  width: 72px;
-  margin-bottom: -40px;
-  margin-top: -4px;
+  width: 54px;
+  margin-bottom: -32px;
 }
 
 .gift-chibi-head--flip {
   transform: scaleX(-1);
 }
 
-.gift-chibi--right .gift-chibi-head--flip.gift-chibi-head--bob {
+.gift-chibi--left .gift-chibi-head--flip.gift-chibi-head--bob {
   transform: scaleX(-1);
 }
 
@@ -1456,6 +1455,7 @@ body:has(#start-screen.active)::after {
   border: 4px solid var(--black);
   box-shadow: 8px 8px 0 var(--black);
   background: #000;
+  cursor: pointer;
 }
 
 .bts-player video::cue {
