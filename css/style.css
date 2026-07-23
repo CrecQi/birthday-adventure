@@ -1437,35 +1437,90 @@ body:has(#start-screen.active)::after {
 #bts-modal {
   z-index: 150;
   background: rgba(26, 26, 26, 0.72);
-  cursor: default;
-}
-
-#bts-modal.bts-ready {
   cursor: pointer;
+  padding: 1rem;
 }
 
-.bts-content {
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  padding: 0;
+.bts-player {
+  cursor: default;
   max-width: min(92vw, 720px);
   width: 100%;
-  overflow: visible;
   position: relative;
 }
 
-.bts-content video {
+.bts-player video {
   display: block;
   width: 100%;
-  max-height: 80dvh;
+  max-height: 72dvh;
   border-radius: var(--radius);
   border: 4px solid var(--black);
   box-shadow: 8px 8px 0 var(--black);
   background: #000;
 }
 
-#bts-modal.is-loading .bts-content::after {
+.bts-player video::cue {
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-family: "ZCOOL KuaiLe", "PingFang SC", sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.bts-controls {
+  margin-top: 0.65rem;
+  padding: 0.55rem 0.65rem;
+  background: var(--white);
+  border: 4px solid var(--black);
+  border-radius: var(--radius);
+  box-shadow: 6px 6px 0 var(--black);
+}
+
+.bts-progress {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(183, 148, 246, 0.35);
+  border: 2px solid var(--black);
+  cursor: pointer;
+}
+
+.bts-progress::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--purple);
+  border: 2px solid var(--black);
+  box-shadow: 2px 2px 0 var(--black);
+}
+
+.bts-progress::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--purple);
+  border: 2px solid var(--black);
+  box-shadow: 2px 2px 0 var(--black);
+}
+
+.bts-time {
+  display: flex;
+  justify-content: center;
+  gap: 0.25rem;
+  margin-top: 0.45rem;
+  font-family: "ZCOOL KuaiLe", cursive;
+  font-size: 0.82rem;
+  font-weight: 900;
+  color: var(--black);
+}
+
+.bts-time-sep {
+  opacity: 0.45;
+}
+
+#bts-modal.is-loading .bts-player::after {
   content: "花絮加载中…";
   position: absolute;
   inset: 0;
