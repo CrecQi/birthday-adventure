@@ -1148,8 +1148,191 @@ body:has(#start-screen.active)::after {
 .gift-content h1 {
   font-size: 1.5rem;
   font-weight: 900;
-  margin: 0.5rem 0 1rem;
+  margin: 0.5rem 0 0.4rem;
   line-height: 1.5;
+}
+
+/* 标题与正文之间：双人相遇动画 */
+.gift-meet {
+  position: relative;
+  width: 100%;
+  height: 118px;
+  margin: 0.15rem 0 0.85rem;
+  overflow: hidden;
+}
+
+.gift-meet-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.gift-chibi {
+  position: absolute;
+  bottom: 0;
+  width: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 2;
+  will-change: transform;
+}
+
+.gift-chibi--left {
+  left: 6%;
+  transform: translateX(-160%);
+}
+
+.gift-chibi--right {
+  right: 6%;
+  transform: translateX(160%);
+}
+
+.gift-meet.is-walking .gift-chibi--left {
+  animation: giftWalkInLeft 1.35s cubic-bezier(0.22, 0.8, 0.28, 1) forwards;
+}
+
+.gift-meet.is-walking .gift-chibi--right {
+  animation: giftWalkInRight 1.35s cubic-bezier(0.22, 0.8, 0.28, 1) forwards;
+}
+
+.gift-meet.is-met .gift-chibi--left {
+  left: calc(50% - 52px);
+  transform: translateX(-50%);
+  animation: giftIdleBobLeft 1.8s ease-in-out infinite;
+}
+
+.gift-meet.is-met .gift-chibi--right {
+  right: calc(50% - 52px);
+  left: auto;
+  transform: translateX(50%);
+  animation: giftIdleBobRight 1.8s ease-in-out infinite 0.2s;
+}
+
+@keyframes giftWalkInLeft {
+  0% { left: 6%; transform: translateX(-160%); }
+  100% { left: calc(50% - 52px); transform: translateX(-50%); }
+}
+
+@keyframes giftWalkInRight {
+  0% { right: 6%; transform: translateX(160%); }
+  100% { right: calc(50% - 52px); transform: translateX(50%); }
+}
+
+@keyframes giftIdleBobLeft {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-4px); }
+}
+
+@keyframes giftIdleBobRight {
+  0%, 100% { transform: translateX(50%) translateY(0); }
+  50% { transform: translateX(50%) translateY(-4px); }
+}
+
+.gift-chibi-head {
+  width: 54px;
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 4px 8px rgba(76, 29, 149, 0.18));
+  margin-bottom: -10px;
+  position: relative;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.gift-chibi-head--flip {
+  transform: scaleX(-1);
+}
+
+.gift-chibi-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+}
+
+.gift-chibi-torso {
+  width: 28px;
+  height: 26px;
+  background: var(--purple);
+  border: 2.5px solid var(--black);
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 2px 2px 0 rgba(61, 53, 88, 0.15);
+}
+
+.gift-chibi-torso span {
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.gift-chibi-legs {
+  display: flex;
+  gap: 5px;
+  margin-top: -2px;
+}
+
+.gift-chibi-legs i {
+  display: block;
+  width: 8px;
+  height: 12px;
+  background: var(--purple-dark, #A78BFA);
+  border: 2px solid var(--black);
+  border-radius: 3px;
+}
+
+.gift-meet.is-walking .gift-chibi-legs i {
+  animation: giftLegStep 0.28s ease-in-out infinite alternate;
+}
+
+.gift-meet.is-walking .gift-chibi-legs i:last-child {
+  animation-delay: 0.14s;
+}
+
+@keyframes giftLegStep {
+  from { transform: translateY(0) rotate(-8deg); }
+  to { transform: translateY(-2px) rotate(8deg); }
+}
+
+.gift-meet-hearts {
+  position: absolute;
+  left: 50%;
+  top: 8px;
+  width: 48px;
+  height: 70px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 3;
+  overflow: visible;
+}
+
+.gift-heart-bubble {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  font-size: 0.95rem;
+  transform: translateX(-50%);
+  animation: giftHeartRise 1.15s ease-out forwards;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 1px rgba(61, 53, 88, 0.2));
+}
+
+@keyframes giftHeartRise {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px) scale(0.4);
+  }
+  18% { opacity: 1; }
+  70% { opacity: 1; }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--hx, 0px)), -58px) scale(1.15);
+  }
 }
 
 .gift-message {
@@ -1167,21 +1350,35 @@ body:has(#start-screen.active)::after {
 
 .gift-actions {
   flex-direction: row;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
   gap: 0.65rem;
   margin-top: 1.25rem;
 }
 
-.gift-actions .btn-primary,
-.gift-actions .btn-secondary {
+.gift-actions .gift-action-btn {
   margin-top: 0;
-  width: auto;
-  min-width: 132px;
-  flex: 1 1 132px;
-  max-width: 168px;
-  padding-left: 1rem;
-  padding-right: 1rem;
+  width: 148px !important;
+  min-width: 148px !important;
+  max-width: 148px !important;
+  flex: 0 0 148px;
+  height: 48px;
+  padding: 0 0.75rem;
+  font-size: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+@media (max-width: 380px) {
+  .gift-actions .gift-action-btn {
+    width: 132px;
+    min-width: 132px;
+    max-width: 132px;
+    flex-basis: 132px;
+    font-size: 0.88rem;
+  }
 }
 
 /* 礼物弹窗四边迸溅 */

@@ -302,4 +302,23 @@ const SFX = {
     });
     playNoise({ duration: 0.25, volume: 0.1, filterFreq: 2000, delay: 0.45 });
   },
+
+  /** 爱心泡泡冒出：轻柔上升声 */
+  bubblePop() {
+    const base = 620 + Math.random() * 180;
+    playTone({ freq: base, type: "sine", duration: 0.12, volume: 0.07, slideTo: base * 1.35 });
+    playTone({ freq: base * 1.5, type: "triangle", duration: 0.08, volume: 0.04, delay: 0.02 });
+  },
+
+  /** 爱心泡泡爆破：轻脆啵声 */
+  bubbleBurst() {
+    playNoise({ duration: 0.06, volume: 0.08, filterFreq: 1800 + Math.random() * 600 });
+    playTone({
+      freq: 980 + Math.random() * 220,
+      type: "sine",
+      duration: 0.07,
+      volume: 0.06,
+      slideTo: 280,
+    });
+  },
 };
