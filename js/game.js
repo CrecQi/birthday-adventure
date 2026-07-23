@@ -1928,7 +1928,6 @@ function goToMachine() {
   document.getElementById("remaining-coins").textContent = totalCoins;
   document.getElementById("btn-lever").disabled = true;
   updateCoinSlotState();
-  document.getElementById("jackpot-banner").classList.add("hidden");
   coinWarningModal.classList.add("hidden");
   resetReels();
   showScreen("machine");
@@ -2098,7 +2097,69 @@ function showGiftModal() {
   requestAnimationFrame(() => {
     const box = giftModal.querySelector(".gift-content");
     if (box) spawnGiftModalBurst(box);
+    startGiftMeetAnim();
   });
+}
+
+let giftHeartTimer = null;
+let giftMeetTimeout = null;
+
+function stopGiftMeetAnim() {
+  clearTimeout(giftMeetTimeout);
+  giftMeetTimeout = null;
+  clearInterval(giftHeartTimer);
+  giftHeartTimer = null;
+
+  const meet = document.querySelector(".gift-meet");
+  const hearts = document.getElementById("gift-meet-hearts");
+  if (meet) meet.classList.remove("is-walking", "is-met");
+  if (hearts) hearts.innerHTML = "";
+}
+
+function startGiftMeetAnim() {
+  stopGiftMeetAnim();
+  const meet = document.querySelector(".gift-meet");
+  if (!meet) return;
+
+  // 强制重启动画
+  void meet.offsetWidth;
+  meet.classList.add("is-walking");
+
+  giftMeetTimeout = setTimeout(() => {
+    meet.classList.remove("is-walking");
+    meet.classList.add("is-met");
+    startGiftHeartBubbles();
+  }, 1350);
+}
+
+function startGiftHeartBubbles() {
+  const hearts = document.getElementById("gift-meet-hearts");
+  if (!hearts) return;
+  const emojis = ["💜", "💖", "💗", "💕", "✨"];
+
+  const spawnOne = () => {
+    if (!giftModal || giftModal.classList.contains("hidden")) return;
+    if (btsModal && !btsModal.classList.contains("hidden")) return;
+
+    const el = document.createElement("span");
+    el.className = "gift-heart-bubble";
+    el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    el.style.setProperty("--hx", `${(Math.random() - 0.5) * 28}px`);
+    el.style.fontSize = `${0.8 + Math.random() * 0.35}rem`;
+    hearts.appendChild(el);
+    setTimeout(() => el.remove(), 1200);
+
+    ensureAudio();
+    SFX.bubblePop();
+    setTimeout(() => {
+      if (!giftModal.classList.contains("hidden") && (!btsModal || btsModal.classList.contains("hidden"))) {
+        SFX.bubbleBurst();
+      }
+    }, 720);
+  };
+
+  spawnOne();
+  giftHeartTimer = setInterval(spawnOne, 520);
 }
 
 function setupBtsVideo() {
@@ -2118,6 +2179,9 @@ function setupBtsVideo() {
 function openBtsVideo() {
   if (!btsModal || !btsVideo) return;
   ensureAudio();
+  // 暂停相遇泡泡音效，避免与视频抢戏
+  clearInterval(giftHeartTimer);
+  giftHeartTimer = null;
   btsVideoEnded = false;
   btsModal.classList.remove("hidden", "bts-ready");
   btsVideo.currentTime = 0;
@@ -2134,6 +2198,13 @@ function closeBtsVideo() {
   btsModal.classList.remove("bts-ready");
   btsVideo.pause();
   btsVideoEnded = false;
+  // 返回礼物弹窗后继续冒泡
+  if (giftModal && !giftModal.classList.contains("hidden")) {
+    const meet = document.querySelector(".gift-meet");
+    if (meet?.classList.contains("is-met") && !giftHeartTimer) {
+      startGiftHeartBubbles();
+    }
+  }
 }
 
 function setupCoinSlotHold() {
@@ -2214,7 +2285,6 @@ function pullLever() {
 
   setTimeout(() => {
     if (reelTickTimer) { clearInterval(reelTickTimer); reelTickTimer = null; }
-    document.getElementById("jackpot-banner").classList.remove("hidden");
     reels.forEach((el) => setReelFinal(el, "🎁"));
     SFX.jackpot();
   }, 2900);
@@ -2244,9 +2314,9 @@ function returnToGame() {
 }
 
 function replay() {
+  stopGiftMeetAnim();
   closeBtsVideo();
   giftModal.classList.add("hidden");
-  document.getElementById("jackpot-banner").classList.add("hidden");
   insertedCoins = 0;
   showScreen("start");
   if (bgmBuffer) {

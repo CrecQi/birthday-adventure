@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=ZCOOL+KuaiLe&family=ZCOOL+QingKe+HuangYou&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/headline.css?v=4">
-  <link rel="stylesheet" href="css/style.css?v=34">
+  <link rel="stylesheet" href="css/style.css?v=35">
 </head>
 <body>
   <!-- 开始界面 -->
@@ -120,7 +120,7 @@
       </div>
       <p class="hint">💡 电脑：方向键移动 · 空格跳跃<br>手机：用屏幕下方按钮操作<br>📲 分享 → <strong>添加到主屏幕</strong>，像 App 一样玩</p>
     </div>
-    <div class="version-badge" aria-hidden="true">v34</div>
+    <div class="version-badge" aria-hidden="true">v35</div>
   </div>
 
   <!-- 游戏界面 -->
@@ -203,10 +203,6 @@
         <div class="lever-arm" id="lever-arm"></div>
       </div>
 
-      <div id="jackpot-banner" class="jackpot-banner hidden">
-        <span>✨ JACKPOT ✨</span>
-      </div>
-
       <div class="machine-footer">
         <p class="coin-remaining">剩余金币：<strong id="remaining-coins">0</strong></p>
         <button id="btn-return-game" class="btn-secondary">🔙 返回继续冒险</button>
@@ -227,12 +223,37 @@
   <div id="gift-modal" class="modal hidden">
     <div class="modal-content gift-content">
       <h1>生日快乐，小胡宝！</h1>
+
+      <div class="gift-meet" aria-hidden="true">
+        <div class="gift-meet-stage" id="gift-meet-stage">
+          <div class="gift-chibi gift-chibi--left" id="gift-chibi-left">
+            <img class="gift-chibi-head" src="assets/media/bubble-head.gif" alt="">
+            <div class="gift-chibi-body">
+              <div class="gift-chibi-torso"><span>♥</span></div>
+              <div class="gift-chibi-legs">
+                <i></i><i></i>
+              </div>
+            </div>
+          </div>
+          <div class="gift-meet-hearts" id="gift-meet-hearts"></div>
+          <div class="gift-chibi gift-chibi--right" id="gift-chibi-right">
+            <img class="gift-chibi-head gift-chibi-head--flip" src="assets/media/bubble-head-bob.gif?v=3" alt="">
+            <div class="gift-chibi-body">
+              <div class="gift-chibi-torso"><span>♥</span></div>
+              <div class="gift-chibi-legs">
+                <i></i><i></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <p class="gift-message">刚才搜集的每一颗小金币&amp;小盒子都是我们共同的回忆呢！✨</p>
       <p class="gift-message">据说，这次生日还有一个神秘的礼物！🎁</p>
       <p class="gift-message gift-message--highlight">据说，要此时此刻亲一口本小游戏的 vibe coder 才可以拿到哦！😘</p>
       <div class="btn-group gift-actions">
-        <button id="btn-replay" class="btn-primary" type="button">💜 再玩一次</button>
-        <button id="btn-bts" class="btn-secondary" type="button">🎬 看看花絮</button>
+        <button id="btn-replay" class="btn-secondary gift-action-btn" type="button">💜 再玩一次</button>
+        <button id="btn-bts" class="btn-primary gift-action-btn" type="button">🎬 看看花絮</button>
       </div>
     </div>
   </div>
@@ -246,7 +267,7 @@
 
   <script src="js/pwa.js"></script>
   <script src="js/config.js?v=31"></script>
-  <script src="js/audio.js?v=19"></script>
-  <script src="js/game.js?v=55"></script>
+  <script src="js/audio.js?v=20"></script>
+  <script src="js/game.js?v=56"></script>
 </body>
 </html>
