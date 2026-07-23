@@ -97,6 +97,7 @@ const btsModal = document.getElementById("bts-modal");
 const btsVideo = document.getElementById("bts-video");
 const coinWarningModal = document.getElementById("coin-warning-modal");
 let btsVideoEnded = false;
+let btsPreloadStarted = false;
 
 // ---- 初始化 ----
 function init() {
@@ -817,6 +818,7 @@ function startGame() {
   TILE = computeTile();
   buildLevel();
   preloadBoxMedia();
+  preloadBtsVideo();
   gamePaused = false;
   lastFrameTime = 0;
   physicsAccumulator = 0;
@@ -1697,6 +1699,17 @@ function preloadMemoryImage(cfg) {
   mediaPreloadCache.set(cfg.src, img);
 }
 
+/** 游戏开始后后台预加载花絮视频，避免点开「看看花絮」时才下载 */
+function preloadBtsVideo() {
+  if (!btsVideo || typeof BTS_VIDEO === "undefined" || btsPreloadStarted) return;
+  btsPreloadStarted = true;
+  if (BTS_VIDEO.poster) btsVideo.poster = BTS_VIDEO.poster;
+  btsVideo.preload = "auto";
+  btsVideo.src = BTS_VIDEO.src;
+  btsVideo.load();
+  mediaPreloadCache.set(BTS_VIDEO.src, btsVideo);
+}
+
 function applyMediaOrientation(mediaEl, width, height) {
   const modalContent = mediaEl.closest(".modal-content");
   const portrait = height > width;
@@ -1931,6 +1944,7 @@ function goToMachine() {
   coinWarningModal.classList.add("hidden");
   resetReels();
   showScreen("machine");
+  preloadBtsVideo();
 
   // 防止跳跃松手误触「返回继续冒险 / 投币口」（移动端 DOM 切换常见）
   ["btn-return-game", "coin-slot", "btn-lever"].forEach((id) => {
@@ -2171,7 +2185,18 @@ function startGiftHeartBubbles() {
 function setupBtsVideo() {
   if (!btsModal || !btsVideo) return;
 
+  if (typeof BTS_VIDEO !== "undefined") {
+    if (BTS_VIDEO.poster) btsVideo.poster = BTS_VIDEO.poster;
+  }
+
   btsVideo.addEventListener("ended", () => {
+    btsVideoEnded = true;
+    btsModal.classList.add("bts-ready");
+    btsModal.classList.remove("is-loading");
+  });
+
+  btsVideo.addEventListener("error", () => {
+    btsModal.classList.remove("is-loading");
     btsVideoEnded = true;
     btsModal.classList.add("bts-ready");
   });
@@ -2185,17 +2210,46 @@ function setupBtsVideo() {
 function openBtsVideo() {
   if (!btsModal || !btsVideo) return;
   ensureAudio();
-  // 暂停相遇泡泡音效，避免与视频抢戏
   clearInterval(giftHeartTimer);
   giftHeartTimer = null;
   btsVideoEnded = false;
   btsModal.classList.remove("hidden", "bts-ready");
-  btsVideo.currentTime = 0;
-  enforceVideoVolume(btsVideo);
-  btsVideo.play().then(() => enforceVideoVolume(btsVideo)).catch(() => {
+  preloadBtsVideo();
+
+  const startPlayback = () => {
+    btsModal.classList.remove("is-loading");
+    btsVideo.currentTime = 0;
+    enforceVideoVolume(btsVideo);
+    btsVideo.play().then(() => enforceVideoVolume(btsVideo)).catch(() => {
+      btsVideoEnded = true;
+      btsModal.classList.add("bts-ready");
+      btsModal.classList.remove("is-loading");
+    });
+  };
+
+  if (btsVideo.readyState >= 2) {
+    startPlayback();
+    return;
+  }
+
+  btsModal.classList.add("is-loading");
+  const onReady = () => {
+    btsVideo.removeEventListener("canplay", onReady);
+    btsVideo.removeEventListener("error", onFail);
+    startPlayback();
+  };
+  const onFail = () => {
+    btsVideo.removeEventListener("canplay", onReady);
+    btsVideo.removeEventListener("error", onFail);
+    btsModal.classList.remove("is-loading");
     btsVideoEnded = true;
     btsModal.classList.add("bts-ready");
-  });
+  };
+  btsVideo.addEventListener("canplay", onReady);
+  btsVideo.addEventListener("error", onFail);
+  if (btsVideo.networkState === HTMLMediaElement.NETWORK_EMPTY) {
+    btsVideo.load();
+  }
 }
 
 function closeBtsVideo() {
