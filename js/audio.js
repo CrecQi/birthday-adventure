@@ -305,8 +305,6 @@ const SFX = {
 
   /** 咕噜咕噜：像水里冒泡的连续低沉泡泡声 */
   bubblePop() {
-    const ctx = ensureAudio();
-    const t0 = ctx.currentTime;
     const base = 140 + Math.random() * 50;
     // 咕～
     playTone({ freq: base, type: "sine", duration: 0.14, volume: 0.09, slideTo: base * 1.55 });
