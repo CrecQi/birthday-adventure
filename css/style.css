@@ -1241,10 +1241,10 @@ body:has(#start-screen.active)::after {
   pointer-events: none;
 }
 
-/* bob 与 bubble-head 视觉等高 */
+/* bob 略大于 bubble-head，对齐面部视觉高度 */
 .gift-chibi-head--bob {
-  width: 54px;
-  margin-bottom: -32px;
+  width: 60px;
+  margin-bottom: -36px;
 }
 
 .gift-chibi-head--flip {

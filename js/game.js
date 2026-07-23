@@ -1703,13 +1703,21 @@ function preloadMemoryImage(cfg) {
   mediaPreloadCache.set(cfg.src, img);
 }
 
+/** 同步花絮字幕 track（更新 config 里的 ?v= 后生效） */
+function syncBtsSubtitleTrack() {
+  const track = document.getElementById("bts-track");
+  if (!track || typeof BTS_VIDEO === "undefined" || !BTS_VIDEO.subtitles) return;
+  if (track.getAttribute("src") !== BTS_VIDEO.subtitles) {
+    track.src = BTS_VIDEO.subtitles;
+  }
+}
+
 /** 游戏开始后后台预加载花絮视频，避免点开「看看花絮」时才下载 */
 function preloadBtsVideo() {
   if (!btsVideo || typeof BTS_VIDEO === "undefined" || btsPreloadStarted) return;
   btsPreloadStarted = true;
   if (BTS_VIDEO.poster) btsVideo.poster = BTS_VIDEO.poster;
-  const track = document.getElementById("bts-track");
-  if (track && BTS_VIDEO.subtitles) track.src = BTS_VIDEO.subtitles;
+  syncBtsSubtitleTrack();
   btsVideo.preload = "auto";
   btsVideo.src = BTS_VIDEO.src;
   btsVideo.load();
@@ -2216,12 +2224,11 @@ function setupBtsVideo() {
   const btsProgress = document.getElementById("bts-progress");
   const btsTimeCurrent = document.getElementById("bts-time-current");
   const btsTimeDuration = document.getElementById("bts-time-duration");
-  const btsTrack = document.getElementById("bts-track");
   let btsProgressSeeking = false;
 
   if (typeof BTS_VIDEO !== "undefined") {
     if (BTS_VIDEO.poster) btsVideo.poster = BTS_VIDEO.poster;
-    if (BTS_VIDEO.subtitles && btsTrack) btsTrack.src = BTS_VIDEO.subtitles;
+    syncBtsSubtitleTrack();
   }
 
   btsVideo.addEventListener("ended", () => {
@@ -2287,6 +2294,7 @@ function openBtsVideo() {
   }
 
   preloadBtsVideo();
+  syncBtsSubtitleTrack();
 
   const btsProgress = document.getElementById("bts-progress");
   const btsTimeCurrent = document.getElementById("bts-time-current");
