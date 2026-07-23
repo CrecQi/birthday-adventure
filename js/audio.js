@@ -136,6 +136,17 @@ function stopBGM() {
   }
 }
 
+/** 临时暂停 BGM（如花絮全屏），不标记用户静音 */
+function pauseBGM() {
+  if (bgmSource) {
+    bgmSource.onended = null;
+    try { bgmSource.stop(); } catch (_) { /* already stopped */ }
+    try { bgmSource.disconnect(); } catch (_) { /* ignore */ }
+    bgmSource = null;
+  }
+  bgmPlaying = false;
+}
+
 function isBgmPlaying() {
   return bgmPlaying && !bgmUserMuted;
 }

@@ -101,6 +101,7 @@ const btsVideo = document.getElementById("bts-video");
 const coinWarningModal = document.getElementById("coin-warning-modal");
 let btsVideoEnded = false;
 let btsPreloadStarted = false;
+let btsPausedBgm = false;
 
 // ---- 初始化 ----
 function init() {
@@ -2139,7 +2140,7 @@ function startGiftMeetAnim() {
   if (!meet) return;
 
   // 重载 bob 头，避免 display:none 后 GIF 停帧
-  const bobHead = meet.querySelector(".gift-chibi--right .gift-chibi-head");
+  const bobHead = meet.querySelector(".gift-chibi--left .gift-chibi-head--bob");
   if (bobHead) {
     bobHead.src = `assets/media/bubble-head-bob.gif?v=3&t=${Date.now()}`;
   }
@@ -2192,6 +2193,23 @@ function formatVideoTime(sec) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+function getBtsVolume() {
+  return typeof BTS_VIDEO !== "undefined" && BTS_VIDEO.volume != null
+    ? BTS_VIDEO.volume
+    : BTS_VIDEO_VOLUME;
+}
+
+function toggleBtsPlayback() {
+  if (!btsVideo || btsModal?.classList.contains("hidden")) return;
+  const vol = getBtsVolume();
+  if (btsVideo.paused) {
+    enforceVideoVolume(btsVideo, vol);
+    btsVideo.play().then(() => enforceVideoVolume(btsVideo, vol)).catch(() => {});
+  } else {
+    btsVideo.pause();
+  }
+}
+
 function setupBtsVideo() {
   if (!btsModal || !btsVideo) return;
 
@@ -2229,15 +2247,21 @@ function setupBtsVideo() {
   });
 
   if (btsProgress) {
-    btsProgress.addEventListener("pointerdown", () => { btsProgressSeeking = true; });
-    btsProgress.addEventListener("input", () => {
+    btsProgress.addEventListener("pointerdown", (e) => { e.stopPropagation(); btsProgressSeeking = true; });
+    btsProgress.addEventListener("input", (e) => {
+      e.stopPropagation();
       const dur = btsVideo.duration;
       if (!Number.isFinite(dur) || dur <= 0) return;
       btsVideo.currentTime = (Number(btsProgress.value) / 1000) * dur;
       if (btsTimeCurrent) btsTimeCurrent.textContent = formatVideoTime(btsVideo.currentTime);
     });
-    btsProgress.addEventListener("pointerup", () => { btsProgressSeeking = false; });
+    btsProgress.addEventListener("pointerup", (e) => { e.stopPropagation(); btsProgressSeeking = false; });
   }
+
+  btsVideo.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleBtsPlayback();
+  });
 
   btsModal.addEventListener("click", (e) => {
     if (btsModal.classList.contains("hidden")) return;
@@ -2254,6 +2278,14 @@ function openBtsVideo() {
   giftHeartTimer = null;
   btsVideoEnded = false;
   btsModal.classList.remove("hidden");
+
+  if (isBgmPlaying()) {
+    pauseBGM();
+    btsPausedBgm = true;
+  } else {
+    btsPausedBgm = false;
+  }
+
   preloadBtsVideo();
 
   const btsProgress = document.getElementById("bts-progress");
@@ -2261,9 +2293,7 @@ function openBtsVideo() {
   if (btsProgress) btsProgress.value = "0";
   if (btsTimeCurrent) btsTimeCurrent.textContent = "0:00";
 
-  const btsVol = typeof BTS_VIDEO !== "undefined" && BTS_VIDEO.volume != null
-    ? BTS_VIDEO.volume
-    : BTS_VIDEO_VOLUME;
+  const btsVol = getBtsVolume();
 
   const startPlayback = () => {
     btsModal.classList.remove("is-loading");
@@ -2309,6 +2339,12 @@ function closeBtsVideo() {
   btsModal.classList.remove("is-loading");
   btsVideo.pause();
   btsVideoEnded = false;
+
+  if (btsPausedBgm) {
+    btsPausedBgm = false;
+    ensureBgmPlaying();
+  }
+
   // 返回礼物弹窗后继续冒泡
   if (giftModal && !giftModal.classList.contains("hidden")) {
     const meet = document.querySelector(".gift-meet");
