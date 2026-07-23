@@ -80,6 +80,9 @@ let boxRehitCooldown = 0;
 /** 进门后短暂忽略「返回游戏」，防止跳跃松手误触返回按钮 */
 let machineEntryUntil = 0;
 const VIDEO_VOLUME = 0.1;
+const BTS_VIDEO_VOLUME = typeof BTS_VIDEO !== "undefined" && BTS_VIDEO.volume != null
+  ? BTS_VIDEO.volume
+  : 0.5;
 /** 视频音量增益节点缓存（Android Chrome 常忽略 video.volume） */
 const videoVolumeGraph = new WeakMap();
 
@@ -1704,6 +1707,8 @@ function preloadBtsVideo() {
   if (!btsVideo || typeof BTS_VIDEO === "undefined" || btsPreloadStarted) return;
   btsPreloadStarted = true;
   if (BTS_VIDEO.poster) btsVideo.poster = BTS_VIDEO.poster;
+  const track = document.getElementById("bts-track");
+  if (track && BTS_VIDEO.subtitles) track.src = BTS_VIDEO.subtitles;
   btsVideo.preload = "auto";
   btsVideo.src = BTS_VIDEO.src;
   btsVideo.load();
@@ -1753,8 +1758,8 @@ function getMemoryVideo(cfg) {
   return video;
 }
 
-/** 强制视频音量≈10%：优先 Web Audio Gain（Android Chrome 常忽略 video.volume） */
-function enforceVideoVolume(video) {
+/** 强制视频音量：优先 Web Audio Gain（Android Chrome 常忽略 video.volume） */
+function enforceVideoVolume(video, level = VIDEO_VOLUME) {
   if (!(video instanceof HTMLVideoElement)) return;
 
   let graph = videoVolumeGraph.get(video);
@@ -1763,15 +1768,14 @@ function enforceVideoVolume(video) {
       const ctx = ensureAudio();
       const source = ctx.createMediaElementSource(video);
       const gain = ctx.createGain();
-      gain.gain.value = VIDEO_VOLUME;
+      gain.gain.value = level;
       source.connect(gain);
       gain.connect(ctx.destination);
       graph = { source, gain, ctx };
       videoVolumeGraph.set(video, graph);
     } catch (_) {
-      // 不支持 Web Audio 路由时，退回元素 volume
       try {
-        if (Math.abs(video.volume - VIDEO_VOLUME) > 0.01) video.volume = VIDEO_VOLUME;
+        if (Math.abs(video.volume - level) > 0.01) video.volume = level;
       } catch (__) { /* ignore */ }
       return;
     }
@@ -1780,10 +1784,9 @@ function enforceVideoVolume(video) {
   try {
     const ctx = graph.ctx || ensureAudio();
     if (ctx.state === "suspended") ctx.resume().catch(() => {});
-    if (Math.abs(graph.gain.gain.value - VIDEO_VOLUME) > 0.001) {
-      graph.gain.gain.value = VIDEO_VOLUME;
+    if (Math.abs(graph.gain.gain.value - level) > 0.001) {
+      graph.gain.gain.value = level;
     }
-    // 走 GainNode 时元素 volume 固定为 1，由 gain 衰减到 10%
     if (video.volume !== 1) video.volume = 1;
   } catch (_) { /* ignore */ }
 }
@@ -2182,27 +2185,64 @@ function startGiftHeartBubbles() {
   giftHeartTimer = setInterval(spawnOne, 520);
 }
 
+function formatVideoTime(sec) {
+  if (!Number.isFinite(sec) || sec < 0) return "0:00";
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
 function setupBtsVideo() {
   if (!btsModal || !btsVideo) return;
 
+  const btsProgress = document.getElementById("bts-progress");
+  const btsTimeCurrent = document.getElementById("bts-time-current");
+  const btsTimeDuration = document.getElementById("bts-time-duration");
+  const btsTrack = document.getElementById("bts-track");
+  let btsProgressSeeking = false;
+
   if (typeof BTS_VIDEO !== "undefined") {
     if (BTS_VIDEO.poster) btsVideo.poster = BTS_VIDEO.poster;
+    if (BTS_VIDEO.subtitles && btsTrack) btsTrack.src = BTS_VIDEO.subtitles;
   }
 
   btsVideo.addEventListener("ended", () => {
     btsVideoEnded = true;
-    btsModal.classList.add("bts-ready");
     btsModal.classList.remove("is-loading");
   });
 
   btsVideo.addEventListener("error", () => {
     btsModal.classList.remove("is-loading");
     btsVideoEnded = true;
-    btsModal.classList.add("bts-ready");
   });
 
-  btsModal.addEventListener("click", () => {
-    if (btsModal.classList.contains("hidden") || !btsVideoEnded) return;
+  btsVideo.addEventListener("loadedmetadata", () => {
+    if (btsTimeDuration) btsTimeDuration.textContent = formatVideoTime(btsVideo.duration);
+  });
+
+  btsVideo.addEventListener("timeupdate", () => {
+    if (btsProgressSeeking || !btsProgress) return;
+    const dur = btsVideo.duration;
+    if (!Number.isFinite(dur) || dur <= 0) return;
+    btsProgress.value = String(Math.round((btsVideo.currentTime / dur) * 1000));
+    if (btsTimeCurrent) btsTimeCurrent.textContent = formatVideoTime(btsVideo.currentTime);
+  });
+
+  if (btsProgress) {
+    btsProgress.addEventListener("pointerdown", () => { btsProgressSeeking = true; });
+    btsProgress.addEventListener("input", () => {
+      const dur = btsVideo.duration;
+      if (!Number.isFinite(dur) || dur <= 0) return;
+      btsVideo.currentTime = (Number(btsProgress.value) / 1000) * dur;
+      if (btsTimeCurrent) btsTimeCurrent.textContent = formatVideoTime(btsVideo.currentTime);
+    });
+    btsProgress.addEventListener("pointerup", () => { btsProgressSeeking = false; });
+  }
+
+  btsModal.addEventListener("click", (e) => {
+    if (btsModal.classList.contains("hidden")) return;
+    const player = document.getElementById("bts-player");
+    if (player && player.contains(e.target)) return;
     closeBtsVideo();
   });
 }
@@ -2213,16 +2253,28 @@ function openBtsVideo() {
   clearInterval(giftHeartTimer);
   giftHeartTimer = null;
   btsVideoEnded = false;
-  btsModal.classList.remove("hidden", "bts-ready");
+  btsModal.classList.remove("hidden");
   preloadBtsVideo();
+
+  const btsProgress = document.getElementById("bts-progress");
+  const btsTimeCurrent = document.getElementById("bts-time-current");
+  if (btsProgress) btsProgress.value = "0";
+  if (btsTimeCurrent) btsTimeCurrent.textContent = "0:00";
+
+  const btsVol = typeof BTS_VIDEO !== "undefined" && BTS_VIDEO.volume != null
+    ? BTS_VIDEO.volume
+    : BTS_VIDEO_VOLUME;
 
   const startPlayback = () => {
     btsModal.classList.remove("is-loading");
     btsVideo.currentTime = 0;
-    enforceVideoVolume(btsVideo);
-    btsVideo.play().then(() => enforceVideoVolume(btsVideo)).catch(() => {
+    enforceVideoVolume(btsVideo, btsVol);
+    const tracks = btsVideo.textTracks;
+    for (let i = 0; i < tracks.length; i++) {
+      tracks[i].mode = tracks[i].kind === "subtitles" ? "showing" : "hidden";
+    }
+    btsVideo.play().then(() => enforceVideoVolume(btsVideo, btsVol)).catch(() => {
       btsVideoEnded = true;
-      btsModal.classList.add("bts-ready");
       btsModal.classList.remove("is-loading");
     });
   };
@@ -2243,7 +2295,6 @@ function openBtsVideo() {
     btsVideo.removeEventListener("error", onFail);
     btsModal.classList.remove("is-loading");
     btsVideoEnded = true;
-    btsModal.classList.add("bts-ready");
   };
   btsVideo.addEventListener("canplay", onReady);
   btsVideo.addEventListener("error", onFail);
@@ -2255,7 +2306,7 @@ function openBtsVideo() {
 function closeBtsVideo() {
   if (!btsModal || !btsVideo) return;
   btsModal.classList.add("hidden");
-  btsModal.classList.remove("bts-ready");
+  btsModal.classList.remove("is-loading");
   btsVideo.pause();
   btsVideoEnded = false;
   // 返回礼物弹窗后继续冒泡

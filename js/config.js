@@ -256,4 +256,6 @@ const MIN_COINS_TO_ENTER_MACHINE = Math.max(30, Math.floor(MACHINE_JACKPOT_COINS
 const BTS_VIDEO = {
   src: "assets/media/bts.mp4?v=2",
   poster: "assets/media/bts_poster.jpg?v=2",
+  subtitles: "assets/media/bts.vtt?v=1",
+  volume: 0.5,
 };

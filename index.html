@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=ZCOOL+KuaiLe&family=ZCOOL+QingKe+HuangYou&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/headline.css?v=4">
-  <link rel="stylesheet" href="css/style.css?v=37">
+  <link rel="stylesheet" href="css/style.css?v=39">
 </head>
 <body>
   <!-- 开始界面 -->
@@ -120,7 +120,7 @@
       </div>
       <p class="hint">💡 电脑：方向键移动 · 空格跳跃<br>手机：用屏幕下方按钮操作<br>📲 分享 → <strong>添加到主屏幕</strong>，像 App 一样玩</p>
     </div>
-    <div class="version-badge" aria-hidden="true">v38</div>
+    <div class="version-badge" aria-hidden="true">v39</div>
   </div>
 
   <!-- 游戏界面 -->
@@ -258,16 +258,26 @@
     </div>
   </div>
 
-  <!-- 花絮视频（播放结束后点击任意处返回礼物弹窗） -->
+  <!-- 花絮视频（点击视频外区域关闭） -->
   <div id="bts-modal" class="modal hidden">
-    <div class="modal-content bts-content">
-      <video id="bts-video" playsinline webkit-playsinline preload="none" poster="assets/media/bts_poster.jpg?v=2"></video>
+    <div class="bts-player" id="bts-player">
+      <video id="bts-video" playsinline webkit-playsinline preload="none" poster="assets/media/bts_poster.jpg?v=2">
+        <track id="bts-track" kind="subtitles" srclang="zh" label="中文" default>
+      </video>
+      <div class="bts-controls">
+        <input id="bts-progress" class="bts-progress" type="range" min="0" max="1000" value="0" step="1" aria-label="播放进度">
+        <div class="bts-time">
+          <span id="bts-time-current">0:00</span>
+          <span class="bts-time-sep">/</span>
+          <span id="bts-time-duration">0:00</span>
+        </div>
+      </div>
     </div>
   </div>
 
   <script src="js/pwa.js"></script>
-  <script src="js/config.js?v=33"></script>
+  <script src="js/config.js?v=34"></script>
   <script src="js/audio.js?v=21"></script>
-  <script src="js/game.js?v=58"></script>
+  <script src="js/game.js?v=59"></script>
 </body>
 </html>
