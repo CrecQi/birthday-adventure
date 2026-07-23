@@ -303,22 +303,24 @@ const SFX = {
     playNoise({ duration: 0.25, volume: 0.1, filterFreq: 2000, delay: 0.45 });
   },
 
-  /** 爱心泡泡冒出：轻柔上升声 */
+  /** 咕噜咕噜：像水里冒泡的连续低沉泡泡声 */
   bubblePop() {
-    const base = 620 + Math.random() * 180;
-    playTone({ freq: base, type: "sine", duration: 0.12, volume: 0.07, slideTo: base * 1.35 });
-    playTone({ freq: base * 1.5, type: "triangle", duration: 0.08, volume: 0.04, delay: 0.02 });
+    const ctx = ensureAudio();
+    const t0 = ctx.currentTime;
+    const base = 140 + Math.random() * 50;
+    // 咕～
+    playTone({ freq: base, type: "sine", duration: 0.14, volume: 0.09, slideTo: base * 1.55 });
+    playTone({ freq: base * 0.7, type: "triangle", duration: 0.12, volume: 0.04, delay: 0.01 });
+    // 噜～
+    playTone({ freq: base * 1.15, type: "sine", duration: 0.13, volume: 0.07, slideTo: base * 1.8, delay: 0.09 });
+    playNoise({ duration: 0.08, volume: 0.035, filterFreq: 420 + Math.random() * 180, delay: 0.04 });
   },
 
-  /** 爱心泡泡爆破：轻脆啵声 */
+  /** 泡泡浮出后轻轻破开：软软的啵～ */
   bubbleBurst() {
-    playNoise({ duration: 0.06, volume: 0.08, filterFreq: 1800 + Math.random() * 600 });
-    playTone({
-      freq: 980 + Math.random() * 220,
-      type: "sine",
-      duration: 0.07,
-      volume: 0.06,
-      slideTo: 280,
-    });
+    const base = 180 + Math.random() * 60;
+    playTone({ freq: base * 2.2, type: "sine", duration: 0.1, volume: 0.055, slideTo: base * 0.6 });
+    playTone({ freq: base, type: "triangle", duration: 0.12, volume: 0.04, delay: 0.02, slideTo: base * 0.5 });
+    playNoise({ duration: 0.07, volume: 0.045, filterFreq: 500 + Math.random() * 250 });
   },
 };
