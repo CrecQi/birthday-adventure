@@ -93,7 +93,10 @@ const boxCountEl = document.getElementById("box-count");
 const boxTotalEl = document.getElementById("box-total");
 const memoryModal = document.getElementById("memory-modal");
 const giftModal = document.getElementById("gift-modal");
+const btsModal = document.getElementById("bts-modal");
+const btsVideo = document.getElementById("bts-video");
 const coinWarningModal = document.getElementById("coin-warning-modal");
+let btsVideoEnded = false;
 
 // ---- 初始化 ----
 function init() {
@@ -128,6 +131,8 @@ function init() {
     returnToGame();
   });
   document.getElementById("btn-replay").addEventListener("click", replay);
+  document.getElementById("btn-bts").addEventListener("click", openBtsVideo);
+  setupBtsVideo();
   setupDebugControls();
   setupButtonSounds();
   setupControls();
@@ -2033,6 +2038,104 @@ function spawnMachineHeartBurst(anchorEl, scale = 1) {
   }
 }
 
+function spawnGiftBurstParticle(x, y, nx, ny, kind = "emoji") {
+  const angle = Math.atan2(ny, nx) + (Math.random() - 0.5) * 0.85;
+  const dist = (42 + Math.random() * 78) * 1.1;
+  const dx = Math.cos(angle) * dist;
+  const dy = Math.sin(angle) * dist - 18;
+  const rot = `${(Math.random() - 0.5) * 720}deg`;
+
+  if (kind === "ribbon") {
+    const colors = ["#C4B5FD", "#FBBF24", "#F9A8D4", "#A78BFA", "#FFE08A", "#E9D5FF"];
+    const el = document.createElement("span");
+    el.className = "gift-ribbon";
+    el.style.background = colors[Math.floor(Math.random() * colors.length)];
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    el.style.setProperty("--dx", `${dx}px`);
+    el.style.setProperty("--dy", `${dy}px`);
+    el.style.setProperty("--rot", rot);
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1150);
+    return;
+  }
+
+  const emojis = ["💜", "💖", "💗", "💕", "✨", "🎊", "🎉", "🎈", "🎀", "💝"];
+  const el = document.createElement("span");
+  el.className = "gift-burst";
+  el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+  el.style.left = `${x}px`;
+  el.style.top = `${y}px`;
+  el.style.setProperty("--dx", `${dx}px`);
+  el.style.setProperty("--dy", `${dy}px`);
+  el.style.setProperty("--rot", rot);
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1100);
+}
+
+/** 礼物弹窗弹出：四边同时迸溅爱心 + 彩带 */
+function spawnGiftModalBurst(anchorEl) {
+  const rect = anchorEl.getBoundingClientRect();
+  const perSide = 10;
+  const sides = [
+    (i) => [rect.left + (rect.width * (i + 0.5)) / perSide, rect.top, 0, -1],
+    (i) => [rect.right, rect.top + (rect.height * (i + 0.5)) / perSide, 1, 0],
+    (i) => [rect.left + (rect.width * (i + 0.5)) / perSide, rect.bottom, 0, 1],
+    (i) => [rect.left, rect.top + (rect.height * (i + 0.5)) / perSide, -1, 0],
+  ];
+
+  sides.forEach((pick) => {
+    for (let i = 0; i < perSide; i++) {
+      const [x, y, nx, ny] = pick(i);
+      spawnGiftBurstParticle(x, y, nx, ny, Math.random() > 0.38 ? "emoji" : "ribbon");
+    }
+  });
+}
+
+function showGiftModal() {
+  giftModal.classList.remove("hidden");
+  slotSpinning = false;
+  requestAnimationFrame(() => {
+    const box = giftModal.querySelector(".gift-content");
+    if (box) spawnGiftModalBurst(box);
+  });
+}
+
+function setupBtsVideo() {
+  if (!btsModal || !btsVideo) return;
+
+  btsVideo.addEventListener("ended", () => {
+    btsVideoEnded = true;
+    btsModal.classList.add("bts-ready");
+  });
+
+  btsModal.addEventListener("click", () => {
+    if (btsModal.classList.contains("hidden") || !btsVideoEnded) return;
+    closeBtsVideo();
+  });
+}
+
+function openBtsVideo() {
+  if (!btsModal || !btsVideo) return;
+  ensureAudio();
+  btsVideoEnded = false;
+  btsModal.classList.remove("hidden", "bts-ready");
+  btsVideo.currentTime = 0;
+  enforceVideoVolume(btsVideo);
+  btsVideo.play().then(() => enforceVideoVolume(btsVideo)).catch(() => {
+    btsVideoEnded = true;
+    btsModal.classList.add("bts-ready");
+  });
+}
+
+function closeBtsVideo() {
+  if (!btsModal || !btsVideo) return;
+  btsModal.classList.add("hidden");
+  btsModal.classList.remove("bts-ready");
+  btsVideo.pause();
+  btsVideoEnded = false;
+}
+
 function setupCoinSlotHold() {
   const slot = document.getElementById("coin-slot");
   if (!slot) return;
@@ -2117,8 +2220,7 @@ function pullLever() {
   }, 2900);
 
   setTimeout(() => {
-    giftModal.classList.remove("hidden");
-    slotSpinning = false;
+    showGiftModal();
   }, 3900);
 }
 
@@ -2142,6 +2244,7 @@ function returnToGame() {
 }
 
 function replay() {
+  closeBtsVideo();
   giftModal.classList.add("hidden");
   document.getElementById("jackpot-banner").classList.add("hidden");
   insertedCoins = 0;
