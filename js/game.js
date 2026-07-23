@@ -2121,6 +2121,12 @@ function startGiftMeetAnim() {
   const meet = document.querySelector(".gift-meet");
   if (!meet) return;
 
+  // 重载 bob 头，避免 display:none 后 GIF 停帧
+  const bobHead = meet.querySelector(".gift-chibi--right .gift-chibi-head");
+  if (bobHead) {
+    bobHead.src = `assets/media/bubble-head-bob.gif?v=3&t=${Date.now()}`;
+  }
+
   // 强制重启动画
   void meet.offsetWidth;
   meet.classList.add("is-walking");
