@@ -138,16 +138,7 @@ body:has(#start-screen.active)::after {
 }
 
 .version-badge {
-  position: absolute;
-  right: max(0.75rem, env(safe-area-inset-right));
-  bottom: max(0.65rem, env(safe-area-inset-bottom));
-  font-family: "ZCOOL QingKe HuangYou", "ZCOOL KuaiLe", cursive;
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: rgba(76, 29, 149, 0.45);
-  letter-spacing: 0.04em;
-  pointer-events: none;
-  z-index: 2;
+  display: none !important;
 }
 
 /* 封面手写标题容器 */
